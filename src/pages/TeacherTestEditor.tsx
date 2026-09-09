@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { absoluteJoinUrl, encodePayload, type SharedTestPayload } from '../lib/share'
 import {
@@ -32,6 +32,16 @@ export function TeacherTestEditor() {
   const [allowTyping, setAllowTyping] = useState(existing?.allowTyping ?? true)
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
+  const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!focusQuestionId) return
+    const el = document.getElementById(`question-${focusQuestionId}`)
+    const input = el?.querySelector('textarea')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    input?.focus()
+    setFocusQuestionId(null)
+  }, [focusQuestionId, questions])
 
   if (!teacher || !hasTeacherSession()) {
     return <Navigate to="/teacher" replace />
@@ -114,19 +124,12 @@ export function TeacherTestEditor() {
           Allow typing tool on student canvas
         </label>
 
-        <div className="section-head row-between">
+        <div className="section-head">
           <h2>Questions</h2>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => setQuestions((q) => [...q, blankQuestion()])}
-          >
-            Add question
-          </button>
         </div>
 
         {questions.map((q, i) => (
-          <div key={q.id} className="question-edit">
+          <div key={q.id} className="question-edit" id={`question-${q.id}`}>
             <div className="row-between">
               <strong>Q{i + 1}</strong>
               {questions.length > 1 && (
@@ -151,6 +154,18 @@ export function TeacherTestEditor() {
             />
           </div>
         ))}
+
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => {
+            const next = blankQuestion()
+            setQuestions((q) => [...q, next])
+            setFocusQuestionId(next.id)
+          }}
+        >
+          Add question
+        </button>
 
         <div className="row gap wrap">
           <button className="btn primary" type="submit">
