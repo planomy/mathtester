@@ -59,8 +59,8 @@ export function renderPageToCanvas(
 
   // Prompt
   ctx.fillStyle = '#134e4a'
-  ctx.font = '500 26px system-ui, sans-serif'
-  wrapText(ctx, prompt, 40, 170, PAGE_W - 80, 34)
+  ctx.font = '700 48px system-ui, sans-serif'
+  wrapText(ctx, prompt, 40, 180, PAGE_W - 80, 58)
 
   // Working area border
   ctx.strokeStyle = '#cbd5e1'
