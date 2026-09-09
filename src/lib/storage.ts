@@ -74,8 +74,19 @@ export function getSubmissions(): Submission[] {
 
 export function addSubmission(sub: Submission) {
   const all = getSubmissions()
-  all.unshift(sub)
+  const normalized: Submission = {
+    ...sub,
+    markPages: sub.markPages ?? sub.pages.map(() => ({ strokes: [], texts: [] })),
+    status: sub.status ?? 'received',
+  }
+  const i = all.findIndex((s) => s.id === normalized.id)
+  if (i >= 0) all[i] = normalized
+  else all.unshift(normalized)
   write(KEYS.submissions, all)
+}
+
+export function upsertSubmission(sub: Submission) {
+  addSubmission(sub)
 }
 
 export function getAttempt(): StudentAttempt | null {

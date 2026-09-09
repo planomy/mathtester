@@ -7,6 +7,8 @@ export type Tool =
   | 'ruler'
   | 'text'
 
+export type MarkTool = 'tick' | 'cross' | 'pen' | 'text' | 'eraser'
+
 export type Point = { x: number; y: number }
 
 export type Stroke = {
@@ -34,6 +36,8 @@ export type PageInk = {
 export type Question = {
   id: string
   prompt: string
+  /** Teacher-only answer / marking guide — never sent to students */
+  answer?: string
 }
 
 export type Test = {
@@ -62,6 +66,10 @@ export type Submission = {
   submittedAt: string
   pages: PageInk[]
   questionPrompts: string[]
+  /** Teacher annotations over student working */
+  markPages?: PageInk[]
+  status?: 'received' | 'marked'
+  markedAt?: string
 }
 
 export type StudentAttempt = {

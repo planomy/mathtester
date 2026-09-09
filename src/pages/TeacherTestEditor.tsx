@@ -13,7 +13,7 @@ import {
 import type { Question, Test } from '../types'
 
 function blankQuestion(): Question {
-  return { id: uid('q'), prompt: '' }
+  return { id: uid('q'), prompt: '', answer: '' }
 }
 
 export function TeacherTestEditor() {
@@ -53,7 +53,11 @@ export function TeacherTestEditor() {
       id: existing?.id ?? uid('test'),
       title: title.trim() || 'Untitled test',
       questions: questions
-        .map((q) => ({ ...q, prompt: q.prompt.trim() }))
+        .map((q) => ({
+          ...q,
+          prompt: q.prompt.trim(),
+          answer: (q.answer ?? '').trim(),
+        }))
         .filter((q) => q.prompt.length > 0),
       allowTyping,
       code: code ?? existing?.code ?? makeCode(),
@@ -82,7 +86,8 @@ export function TeacherTestEditor() {
       test: {
         id: test.id,
         title: test.title,
-        questions: test.questions,
+        // Strip teacher answers — students must never receive them
+        questions: test.questions.map(({ id, prompt }) => ({ id, prompt })),
         allowTyping: test.allowTyping,
         code: test.code,
         createdAt: test.createdAt,
@@ -152,6 +157,20 @@ export function TeacherTestEditor() {
                 )
               }
             />
+            <label className="answer-field">
+              Teacher answer / marking guide
+              <span className="muted"> (students never see this)</span>
+              <textarea
+                rows={2}
+                placeholder="Expected working or final answer…"
+                value={q.answer ?? ''}
+                onChange={(e) =>
+                  setQuestions((all) =>
+                    all.map((x) => (x.id === q.id ? { ...x, answer: e.target.value } : x)),
+                  )
+                }
+              />
+            </label>
           </div>
         ))}
 

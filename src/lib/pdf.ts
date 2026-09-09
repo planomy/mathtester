@@ -1,8 +1,9 @@
 import { jsPDF } from 'jspdf'
-import type { PageInk, Point } from '../types'
+import type { PageInk, Point, Stroke, TextItem } from '../types'
 
 const PAGE_W = 1200
 const PAGE_H = 1600
+export const WORK_OFFSET_Y = 280
 
 function drawStroke(
   ctx: CanvasRenderingContext2D,
@@ -32,56 +33,7 @@ function drawStroke(
   ctx.restore()
 }
 
-export function renderPageToCanvas(
-  page: PageInk,
-  prompt: string,
-  meta: { studentName: string; testTitle: string; index: number; total: number },
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas')
-  canvas.width = PAGE_W
-  canvas.height = PAGE_H
-  const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#faf8f4'
-  ctx.fillRect(0, 0, PAGE_W, PAGE_H)
-
-  // Header
-  ctx.fillStyle = '#0f766e'
-  ctx.fillRect(0, 0, PAGE_W, 120)
-  ctx.fillStyle = '#ecfdf5'
-  ctx.font = '600 28px system-ui, sans-serif'
-  ctx.fillText(meta.testTitle, 40, 48)
-  ctx.font = '400 20px system-ui, sans-serif'
-  ctx.fillText(
-    `${meta.studentName}  ·  Q${meta.index + 1} of ${meta.total}`,
-    40,
-    88,
-  )
-
-  // Prompt
-  ctx.fillStyle = '#134e4a'
-  ctx.font = '700 48px system-ui, sans-serif'
-  wrapText(ctx, prompt, 40, 180, PAGE_W - 80, 58)
-
-  // Working area border
-  ctx.strokeStyle = '#cbd5e1'
-  ctx.lineWidth = 2
-  ctx.strokeRect(30, 280, PAGE_W - 60, PAGE_H - 320)
-
-  // Light grid
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(30, 280, PAGE_W - 60, PAGE_H - 320)
-  ctx.clip()
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
-  ctx.lineWidth = 1
-  for (let y = 280; y < PAGE_H - 40; y += 40) {
-    ctx.beginPath()
-    ctx.moveTo(30, y)
-    ctx.lineTo(PAGE_W - 30, y)
-    ctx.stroke()
-  }
-
-  const offsetY = 280
+function paintInk(ctx: CanvasRenderingContext2D, page: PageInk, offsetY: number) {
   for (const stroke of page.strokes) {
     const pts = stroke.points.map((p) => ({ x: p.x, y: p.y + offsetY }))
     if (stroke.tool === 'line' || stroke.tool === 'ruler') {
@@ -124,6 +76,72 @@ export function renderPageToCanvas(
     ctx.font = `${t.size}px system-ui, sans-serif`
     ctx.fillText(t.text, t.x, t.y + offsetY)
   }
+}
+
+export function renderPageToCanvas(
+  page: PageInk,
+  prompt: string,
+  meta: {
+    studentName: string
+    testTitle: string
+    index: number
+    total: number
+    marks?: PageInk
+    marked?: boolean
+  },
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  canvas.width = PAGE_W
+  canvas.height = PAGE_H
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#faf8f4'
+  ctx.fillRect(0, 0, PAGE_W, PAGE_H)
+
+  // Header
+  ctx.fillStyle = '#0f766e'
+  ctx.fillRect(0, 0, PAGE_W, 120)
+  ctx.fillStyle = '#ecfdf5'
+  ctx.font = '700 30px system-ui, sans-serif'
+  ctx.fillText(meta.studentName, 40, 48)
+  ctx.font = '400 20px system-ui, sans-serif'
+  ctx.fillText(
+    `${meta.testTitle}  ·  Q${meta.index + 1} of ${meta.total}`,
+    40,
+    88,
+  )
+
+  if (meta.marked) {
+    ctx.fillStyle = '#b91c1c'
+    ctx.font = '700 22px system-ui, sans-serif'
+    ctx.fillText('MARKED', PAGE_W - 160, 70)
+  }
+
+  // Prompt
+  ctx.fillStyle = '#134e4a'
+  ctx.font = '700 48px system-ui, sans-serif'
+  wrapText(ctx, prompt, 40, 180, PAGE_W - 80, 58)
+
+  // Working area border
+  ctx.strokeStyle = '#cbd5e1'
+  ctx.lineWidth = 2
+  ctx.strokeRect(30, WORK_OFFSET_Y, PAGE_W - 60, PAGE_H - 320)
+
+  // Light grid
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(30, WORK_OFFSET_Y, PAGE_W - 60, PAGE_H - 320)
+  ctx.clip()
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
+  ctx.lineWidth = 1
+  for (let y = WORK_OFFSET_Y; y < PAGE_H - 40; y += 40) {
+    ctx.beginPath()
+    ctx.moveTo(30, y)
+    ctx.lineTo(PAGE_W - 30, y)
+    ctx.stroke()
+  }
+
+  paintInk(ctx, page, WORK_OFFSET_Y)
+  if (meta.marks) paintInk(ctx, meta.marks, WORK_OFFSET_Y)
   ctx.restore()
 
   return canvas
@@ -158,6 +176,8 @@ export async function buildTestPdf(opts: {
   studentName: string
   prompts: string[]
   pages: PageInk[]
+  markPages?: PageInk[]
+  marked?: boolean
 }): Promise<Blob> {
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -174,6 +194,8 @@ export async function buildTestPdf(opts: {
       testTitle: opts.testTitle,
       index: i,
       total: opts.pages.length,
+      marks: opts.markPages?.[i],
+      marked: opts.marked,
     })
     const img = canvas.toDataURL('image/jpeg', 0.82)
     pdf.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight)
@@ -190,3 +212,9 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+export function emptyInk(): PageInk {
+  return { strokes: [], texts: [] }
+}
+
+export type { Stroke, TextItem }
