@@ -67,26 +67,39 @@ textarea {
   height: 100dvh;
   display: grid;
   grid-template-rows: auto auto 1fr;
-  padding: 16px 16px 12px;
+  padding: 10px 14px 10px;
   max-width: 1400px;
   margin: 0 auto;
-  gap: 10px;
+  gap: 7px;
 }
 
 .marking-top {
   display: flex;
   justify-content: space-between;
-  align-items: end;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 
 .marking-top h1 {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  margin-top: 2px;
+  display: inline;
+  font-size: clamp(1.45rem, 2.2vw, 1.8rem);
+  margin-left: 12px;
 }
 
 .marking-top .back {
   margin-bottom: 0;
+}
+
+.marking-top-title {
+  min-width: 0;
+}
+
+.marking-top-actions {
+  flex: none;
+}
+
+.marking-page .btn {
+  padding: 0.48rem 0.82rem;
 }
 
 .import-bar {
@@ -97,7 +110,7 @@ textarea {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(200px, 24%) 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: stretch;
 }
 
@@ -105,8 +118,8 @@ textarea {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
@@ -197,11 +210,14 @@ textarea {
 }
 
 .answer-key {
-  margin: 12px 0;
-  padding: 12px 14px;
-  border-radius: 12px;
+  min-width: 190px;
+  padding: 7px 10px;
+  border-radius: 10px;
   background: #f0fdfa;
   border: 1px solid #99f6e4;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .status-ok {
@@ -215,29 +231,80 @@ textarea {
 }
 
 .compact-note {
-  margin-top: 4px;
+  margin-top: 1px;
   max-width: 36rem;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .answer-key p {
-  margin-top: 6px;
-  white-space: pre-wrap;
-  font-size: 1.05rem;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marking-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.marking-control-row .answer-key {
+  flex: 1 1 220px;
+}
+
+.marking-control-row .toolbar {
+  flex: none;
 }
 
 .marking {
   display: grid;
-  gap: 10px;
+  gap: 7px;
   /* No 1fr row — that grew forever inside the scroll pane */
-  grid-template-rows: auto auto auto auto auto;
+  grid-template-rows: repeat(4, auto);
   min-height: 0;
   align-content: start;
 }
 
 .marking h2 {
   font-family: var(--display);
-  font-size: 1.8rem;
+  font-size: 1.45rem;
+  line-height: 1.05;
+}
+
+.marking-student-bar {
+  min-height: 38px;
+}
+
+.marking-student-title .muted {
+  font-size: 0.85rem;
+}
+
+.marking-student-actions {
+  justify-content: flex-end;
+}
+
+.marking .prompt {
+  padding: 8px 11px;
+  border-radius: 10px;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  line-height: 1.16;
+}
+
+.marking .toolbar {
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.marking .toolbar-group {
+  gap: 2px;
+  padding: 3px;
+}
+
+.marking .tool {
+  padding: 0.34rem 0.58rem;
+  font-size: 0.9rem;
 }
 
 .mark-wrap {
@@ -270,10 +337,33 @@ textarea {
     max-height: 220px;
   }
 
+  .marking-control-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marking-control-row .answer-key {
+    flex-basis: auto;
+  }
+
+  .marking-control-row .toolbar {
+    flex-wrap: wrap;
+  }
+
   .ink-wrap.mark-wrap {
     height: min(50vh, 520px);
     max-height: 520px;
     min-height: 320px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .marking-top .compact-note {
+    display: none;
+  }
+
+  .marking-student-actions {
+    gap: 5px;
   }
 }
 

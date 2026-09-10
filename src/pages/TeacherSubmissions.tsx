@@ -182,7 +182,7 @@ export function TeacherSubmissions() {
   return (
     <div className="marking-page">
       <header className="marking-top">
-        <div>
+        <div className="marking-top-title">
           <Link className="back" to="/teacher/dashboard">
             ← Dashboard
           </Link>
@@ -191,7 +191,7 @@ export function TeacherSubmissions() {
             Marks auto-save in this browser. Download a backup so you don’t lose the inbox.
           </p>
         </div>
-        <div className="row gap wrap">
+        <div className="row gap wrap marking-top-actions">
           <button
             type="button"
             className="btn ghost"
@@ -308,14 +308,14 @@ export function TeacherSubmissions() {
             <p className="empty">Select a student on the left to start marking.</p>
           ) : (
             <div className="marking">
-              <header className="row-between wrap">
-                <div>
+              <header className="row-between wrap marking-student-bar">
+                <div className="marking-student-title">
                   <h2>{active.studentName}</h2>
                   <p className="muted">
                     {active.testTitle} · Q{pageIndex + 1}/{active.pages.length}
                   </p>
                 </div>
-                <div className="row gap wrap">
+                <div className="row gap wrap marking-student-actions">
                   <button
                     type="button"
                     className="btn ghost"
@@ -340,7 +340,7 @@ export function TeacherSubmissions() {
                       flash('Submission JSON downloaded.')
                     }}
                   >
-                    Save this student
+                    Save student
                   </button>
                   <button
                     type="button"
@@ -348,51 +348,53 @@ export function TeacherSubmissions() {
                     disabled={busy}
                     onClick={saveMarkedAndDownload}
                   >
-                    {busy ? 'Building…' : 'Mark done & download PDF'}
+                    {busy ? 'Building…' : 'Finish & download PDF'}
                   </button>
                 </div>
               </header>
 
-              <div className="answer-key">
-                <strong>Teacher answer</strong>
-                <p>
-                  {answers[pageIndex] ||
-                    'No answer saved for this question — add it in the test editor.'}
-                </p>
-              </div>
-
-              <div className="toolbar">
-                <div className="toolbar-group">
-                  {(
-                    [
-                      ['tick', '✓ Tick'],
-                      ['cross', '✗ Cross'],
-                      ['pen', 'Pen'],
-                      ['text', 'Note'],
-                      ['eraser', 'Eraser'],
-                    ] as const
-                  ).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={tool === id ? 'tool active' : 'tool'}
-                      onClick={() => setTool(id)}
-                    >
-                      {label}
-                    </button>
-                  ))}
+              <div className="marking-control-row">
+                <div className="answer-key">
+                  <strong>Answer</strong>
+                  <p>
+                    {answers[pageIndex] ||
+                      'No answer saved — add one in the test editor.'}
+                  </p>
                 </div>
-                <div className="toolbar-group">
-                  <button type="button" className="tool" onClick={undoMark}>
-                    Undo
-                  </button>
-                  <button
-                    type="button"
-                    className="tool danger"
-                    onClick={() => setMarks(emptyInk())}
-                  >
-                    Clear marks
-                  </button>
+
+                <div className="toolbar" aria-label="Marking tools">
+                  <div className="toolbar-group">
+                    {(
+                      [
+                        ['tick', '✓ Tick'],
+                        ['cross', '✗ Cross'],
+                        ['pen', 'Pen'],
+                        ['text', 'Note'],
+                        ['eraser', 'Eraser'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={tool === id ? 'tool active' : 'tool'}
+                        onClick={() => setTool(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="toolbar-group">
+                    <button type="button" className="tool" onClick={undoMark}>
+                      Undo
+                    </button>
+                    <button
+                      type="button"
+                      className="tool danger"
+                      onClick={() => setMarks(emptyInk())}
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
               </div>
 
