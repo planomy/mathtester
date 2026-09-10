@@ -185,10 +185,7 @@ textarea {
 }
 
 .mark-wrap {
-  width: 100%;
-  height: min(560px, calc(100dvh - 340px));
-  max-height: 560px;
-  min-height: 360px;
+  /* height set on .ink-wrap.mark-wrap below so it wins specificity */
   flex: none;
 }
 
@@ -217,9 +214,10 @@ textarea {
     max-height: 220px;
   }
 
-  .mark-wrap {
+  .ink-wrap.mark-wrap {
     height: min(50vh, 520px);
     max-height: 520px;
+    min-height: 320px;
   }
 }
 
@@ -559,7 +557,6 @@ textarea {
 .ink-wrap {
   position: relative;
   min-height: 0;
-  height: 100%;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -572,6 +569,14 @@ textarea {
 .sit .ink-wrap {
   width: 100%;
   height: min(560px, calc(100dvh - 280px));
+  max-height: 560px;
+  min-height: 360px;
+}
+
+/* Marking canvas — must beat .ink-wrap so it doesn't collapse to 0 */
+.ink-wrap.mark-wrap {
+  width: 100%;
+  height: min(560px, calc(100dvh - 340px));
   max-height: 560px;
   min-height: 360px;
 }
