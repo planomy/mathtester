@@ -89,31 +89,39 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
     )
   }
 
-  // Size canvas once; only rewrite buffer when pixel size actually changes
+  // Size canvas to the wrap box only — never feed measured size back into layout
   useEffect(() => {
     const canvas = canvasRef.current
     const wrap = wrapRef.current
     if (!canvas || !wrap) return
 
+    let frame = 0
     const resize = () => {
-      const rect = wrap.getBoundingClientRect()
-      if (rect.width < 2 || rect.height < 2) return
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const nextW = Math.floor(rect.width * dpr)
-      const nextH = Math.floor(rect.height * dpr)
-      if (canvas.width !== nextW || canvas.height !== nextH) {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const w = Math.floor(wrap.clientWidth)
+        const h = Math.floor(wrap.clientHeight)
+        if (w < 2 || h < 2) return
+        const dpr = Math.min(window.devicePixelRatio || 1, 2)
+        const nextW = Math.floor(w * dpr)
+        const nextH = Math.floor(h * dpr)
+        if (canvas.width === nextW && canvas.height === nextH) {
+          paint()
+          return
+        }
         canvas.width = nextW
         canvas.height = nextH
-        canvas.style.width = `${rect.width}px`
-        canvas.style.height = `${rect.height}px`
-      }
-      paint()
+        paint()
+      })
     }
 
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(frame)
+      ro.disconnect()
+    }
   }, [])
 
   // Redraw ink without wiping the canvas buffer

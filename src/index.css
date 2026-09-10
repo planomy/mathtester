@@ -173,8 +173,10 @@ textarea {
 .marking {
   display: grid;
   gap: 10px;
-  min-height: 100%;
-  grid-template-rows: auto auto auto auto 1fr;
+  /* No 1fr row — that grew forever inside the scroll pane */
+  grid-template-rows: auto auto auto auto auto;
+  min-height: 0;
+  align-content: start;
 }
 
 .marking h2 {
@@ -183,8 +185,11 @@ textarea {
 }
 
 .mark-wrap {
+  width: 100%;
+  height: min(560px, calc(100dvh - 340px));
+  max-height: 560px;
   min-height: 360px;
-  height: 100%;
+  flex: none;
 }
 
 .empty.compact {
@@ -213,8 +218,8 @@ textarea {
   }
 
   .mark-wrap {
-    min-height: 50vh;
-    height: 55vh;
+    height: min(50vh, 520px);
+    max-height: 520px;
   }
 }
 
@@ -561,6 +566,8 @@ textarea {
 }
 
 .ink-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;

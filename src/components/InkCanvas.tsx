@@ -31,17 +31,16 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
     if (!canvas || !wrap) return
 
     const resize = () => {
-      const rect = wrap.getBoundingClientRect()
-      if (rect.width < 2 || rect.height < 2) return
+      const w = Math.floor(wrap.clientWidth)
+      const h = Math.floor(wrap.clientHeight)
+      if (w < 2 || h < 2) return
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const nextW = Math.floor(rect.width * dpr)
-      const nextH = Math.floor(rect.height * dpr)
+      const nextW = Math.floor(w * dpr)
+      const nextH = Math.floor(h * dpr)
       // Setting canvas.width clears the bitmap — only do it when size changes
       if (canvas.width !== nextW || canvas.height !== nextH) {
         canvas.width = nextW
         canvas.height = nextH
-        canvas.style.width = `${rect.width}px`
-        canvas.style.height = `${rect.height}px`
       }
       paint()
     }
