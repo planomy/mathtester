@@ -31,6 +31,7 @@ export function TeacherSubmissions() {
   const [pageIndex, setPageIndex] = useState(0)
   const [tool, setTool] = useState<MarkTool>('tick')
   const [busy, setBusy] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   const active = useMemo(
     () => subs.find((s) => s.id === activeId) ?? null,
@@ -62,6 +63,7 @@ export function TeacherSubmissions() {
     setActiveId(payload.submission.id)
     setPageIndex(0)
     setToken('')
+    setShowImport(false)
   }
 
   function updateActive(next: Submission) {
@@ -117,143 +119,165 @@ export function TeacherSubmissions() {
   const currentStudent = active?.pages[pageIndex] ?? emptyInk()
 
   return (
-    <div className="page wide">
-      <Link className="back" to="/teacher/dashboard">
-        ← Dashboard
-      </Link>
-      <h1>Submissions</h1>
-      <p className="muted">
-        Import a student token, mark with tick/cross/pen (answer key beside you), then download the
-        marked PDF — filename includes the student name.
-      </p>
-
-      <form className="stack" onSubmit={onImport}>
-        <label>
-          Import token
-          <textarea
-            rows={2}
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Paste token from student submit screen"
-          />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="btn primary" type="submit">
-          Import
+    <div className="marking-page">
+      <header className="marking-top">
+        <div>
+          <Link className="back" to="/teacher/dashboard">
+            ← Dashboard
+          </Link>
+          <h1>Submissions</h1>
+        </div>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => setShowImport((v) => !v)}
+        >
+          {showImport ? 'Hide import' : 'Import token'}
         </button>
-      </form>
+      </header>
 
-      <ul className="list">
-        {subs.map((s) => (
-          <li key={s.id}>
-            <button
-              type="button"
-              className={s.id === activeId ? 'list-btn active' : 'list-btn'}
-              onClick={() => {
-                setActiveId(s.id)
-                setPageIndex(0)
-              }}
-            >
-              <strong>
-                {s.studentName} · {s.testTitle}
-              </strong>
-              <span>
-                {s.testCode} · {s.status === 'marked' ? 'Marked' : 'Received'} ·{' '}
-                {new Date(s.submittedAt).toLocaleString()}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {active && (
-        <section className="marking">
-          <header className="row-between wrap">
-            <div>
-              <h2>{active.studentName}</h2>
-              <p className="muted">
-                {active.testTitle} · Q{pageIndex + 1}/{active.pages.length}
-              </p>
-            </div>
-            <div className="row gap wrap">
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={pageIndex === 0}
-                onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-              >
-                Prev
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={pageIndex >= active.pages.length - 1}
-                onClick={() => setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))}
-              >
-                Next
-              </button>
-              <button
-                type="button"
-                className="btn primary"
-                disabled={busy}
-                onClick={saveMarkedAndDownload}
-              >
-                {busy ? 'Building…' : 'Mark done & download PDF'}
-              </button>
-            </div>
-          </header>
-
-          <div className="answer-key">
-            <strong>Teacher answer</strong>
-            <p>{answers[pageIndex] || 'No answer saved for this question — add it in the test editor.'}</p>
-          </div>
-
-          <div className="toolbar">
-            <div className="toolbar-group">
-              {(
-                [
-                  ['tick', '✓ Tick'],
-                  ['cross', '✗ Cross'],
-                  ['pen', 'Pen'],
-                  ['text', 'Note'],
-                  ['eraser', 'Eraser'],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={tool === id ? 'tool active' : 'tool'}
-                  onClick={() => setTool(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="toolbar-group">
-              <button type="button" className="tool" onClick={undoMark}>
-                Undo
-              </button>
-              <button
-                type="button"
-                className="tool danger"
-                onClick={() => setMarks(emptyInk())}
-              >
-                Clear marks
-              </button>
-            </div>
-          </div>
-
-          <p className="prompt">{active.questionPrompts[pageIndex]}</p>
-
-          <MarkingCanvas
-            studentPage={currentStudent}
-            marks={currentMarks}
-            onChange={setMarks}
-            tool={tool}
-            prompt={active.questionPrompts[pageIndex] || ''}
-          />
-        </section>
+      {showImport && (
+        <form className="stack import-bar" onSubmit={onImport}>
+          <label>
+            Import token
+            <textarea
+              rows={2}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste token from student submit screen"
+            />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="btn primary" type="submit">
+            Import
+          </button>
+        </form>
       )}
+
+      <div className="marking-split">
+        <aside className="marking-sidebar">
+          <h2 className="sidebar-heading">Students</h2>
+          {subs.length === 0 ? (
+            <p className="empty compact">No submissions yet.</p>
+          ) : (
+            <ul className="list sidebar-list">
+              {subs.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={s.id === activeId ? 'list-btn active' : 'list-btn'}
+                    onClick={() => {
+                      setActiveId(s.id)
+                      setPageIndex(0)
+                    }}
+                  >
+                    <strong>{s.studentName}</strong>
+                    <span>
+                      {s.status === 'marked' ? 'Marked' : 'Received'} · {s.testCode}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+
+        <section className="marking-main">
+          {!active ? (
+            <p className="empty">Select a student on the left to start marking.</p>
+          ) : (
+            <div className="marking">
+              <header className="row-between wrap">
+                <div>
+                  <h2>{active.studentName}</h2>
+                  <p className="muted">
+                    {active.testTitle} · Q{pageIndex + 1}/{active.pages.length}
+                  </p>
+                </div>
+                <div className="row gap wrap">
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={pageIndex === 0}
+                    onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={pageIndex >= active.pages.length - 1}
+                    onClick={() => setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))}
+                  >
+                    Next
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={busy}
+                    onClick={saveMarkedAndDownload}
+                  >
+                    {busy ? 'Building…' : 'Mark done & download PDF'}
+                  </button>
+                </div>
+              </header>
+
+              <div className="answer-key">
+                <strong>Teacher answer</strong>
+                <p>
+                  {answers[pageIndex] ||
+                    'No answer saved for this question — add it in the test editor.'}
+                </p>
+              </div>
+
+              <div className="toolbar">
+                <div className="toolbar-group">
+                  {(
+                    [
+                      ['tick', '✓ Tick'],
+                      ['cross', '✗ Cross'],
+                      ['pen', 'Pen'],
+                      ['text', 'Note'],
+                      ['eraser', 'Eraser'],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={tool === id ? 'tool active' : 'tool'}
+                      onClick={() => setTool(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="toolbar-group">
+                  <button type="button" className="tool" onClick={undoMark}>
+                    Undo
+                  </button>
+                  <button
+                    type="button"
+                    className="tool danger"
+                    onClick={() => setMarks(emptyInk())}
+                  >
+                    Clear marks
+                  </button>
+                </div>
+              </div>
+
+              <p className="prompt">{active.questionPrompts[pageIndex]}</p>
+
+              <MarkingCanvas
+                studentPage={currentStudent}
+                marks={currentMarks}
+                onChange={setMarks}
+                tool={tool}
+                prompt={active.questionPrompts[pageIndex] || ''}
+              />
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }
