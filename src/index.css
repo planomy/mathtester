@@ -459,9 +459,10 @@ textarea {
 }
 
 .sit {
-  height: 100dvh;
+  min-height: 100dvh;
+  height: auto;
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto;
   gap: 8px;
   padding: 12px;
   max-width: 1400px;
@@ -549,6 +550,14 @@ textarea {
   box-shadow: var(--shadow);
   background: var(--paper);
   touch-action: none;
+}
+
+/* Cap student working paper — about one A4-ish sheet of room */
+.sit .ink-wrap {
+  width: 100%;
+  height: min(560px, calc(100dvh - 280px));
+  max-height: 560px;
+  min-height: 360px;
 }
 
 .ink-canvas {

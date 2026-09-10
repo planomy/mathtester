@@ -2,8 +2,15 @@ import { jsPDF } from 'jspdf'
 import type { PageInk, Point, Stroke, TextItem } from '../types'
 
 const PAGE_W = 1200
-const PAGE_H = 1600
-export const WORK_OFFSET_Y = 280
+const HEADER_H = 120
+const PROMPT_TOP = 180
+const WORK_TOP = 280
+const MIN_WORK_H = 420
+const MAX_WORK_H = 720
+const CONTENT_PAD = 48
+const FOOTER_PAD = 36
+
+export const WORK_OFFSET_Y = WORK_TOP
 
 function drawStroke(
   ctx: CanvasRenderingContext2D,
@@ -78,6 +85,34 @@ function paintInk(ctx: CanvasRenderingContext2D, page: PageInk, offsetY: number)
   }
 }
 
+function inkExtentY(page: PageInk): number {
+  let maxY = 0
+  for (const stroke of page.strokes) {
+    const pad = stroke.width
+    for (const p of stroke.points) {
+      maxY = Math.max(maxY, p.y + pad)
+    }
+  }
+  for (const t of page.texts) {
+    maxY = Math.max(maxY, t.y + t.size)
+  }
+  return maxY
+}
+
+function workHeightFor(page: PageInk, marks?: PageInk): number {
+  const contentY = Math.max(inkExtentY(page), marks ? inkExtentY(marks) : 0)
+  if (contentY <= 0) return MIN_WORK_H
+  return Math.min(MAX_WORK_H, Math.max(MIN_WORK_H, Math.ceil(contentY + CONTENT_PAD)))
+}
+
+function promptBlockHeight(prompt: string): number {
+  // Rough wrap estimate for bold 48px / ~58 line height on PAGE_W-80
+  const avgChar = 26
+  const charsPerLine = Math.max(12, Math.floor((PAGE_W - 80) / avgChar))
+  const lines = Math.max(1, Math.ceil((prompt || ' ').length / charsPerLine))
+  return Math.min(160, lines * 58)
+}
+
 export function renderPageToCanvas(
   page: PageInk,
   prompt: string,
@@ -90,16 +125,21 @@ export function renderPageToCanvas(
     marked?: boolean
   },
 ): HTMLCanvasElement {
+  const promptH = promptBlockHeight(prompt)
+  const workTop = Math.max(WORK_TOP, PROMPT_TOP + promptH + 24)
+  const workH = workHeightFor(page, meta.marks)
+  const pageH = workTop + workH + FOOTER_PAD
+
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W
-  canvas.height = PAGE_H
+  canvas.height = pageH
   const ctx = canvas.getContext('2d')!
   ctx.fillStyle = '#faf8f4'
-  ctx.fillRect(0, 0, PAGE_W, PAGE_H)
+  ctx.fillRect(0, 0, PAGE_W, pageH)
 
   // Header
   ctx.fillStyle = '#0f766e'
-  ctx.fillRect(0, 0, PAGE_W, 120)
+  ctx.fillRect(0, 0, PAGE_W, HEADER_H)
   ctx.fillStyle = '#ecfdf5'
   ctx.font = '700 30px system-ui, sans-serif'
   ctx.fillText(meta.studentName, 40, 48)
@@ -119,29 +159,29 @@ export function renderPageToCanvas(
   // Prompt
   ctx.fillStyle = '#134e4a'
   ctx.font = '700 48px system-ui, sans-serif'
-  wrapText(ctx, prompt, 40, 180, PAGE_W - 80, 58)
+  wrapText(ctx, prompt, 40, PROMPT_TOP, PAGE_W - 80, 58)
 
   // Working area border
   ctx.strokeStyle = '#cbd5e1'
   ctx.lineWidth = 2
-  ctx.strokeRect(30, WORK_OFFSET_Y, PAGE_W - 60, PAGE_H - 320)
+  ctx.strokeRect(30, workTop, PAGE_W - 60, workH)
 
   // Light grid
   ctx.save()
   ctx.beginPath()
-  ctx.rect(30, WORK_OFFSET_Y, PAGE_W - 60, PAGE_H - 320)
+  ctx.rect(30, workTop, PAGE_W - 60, workH)
   ctx.clip()
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
   ctx.lineWidth = 1
-  for (let y = WORK_OFFSET_Y; y < PAGE_H - 40; y += 40) {
+  for (let y = workTop; y < workTop + workH; y += 40) {
     ctx.beginPath()
     ctx.moveTo(30, y)
     ctx.lineTo(PAGE_W - 30, y)
     ctx.stroke()
   }
 
-  paintInk(ctx, page, WORK_OFFSET_Y)
-  if (meta.marks) paintInk(ctx, meta.marks, WORK_OFFSET_Y)
+  paintInk(ctx, page, workTop)
+  if (meta.marks) paintInk(ctx, meta.marks, workTop)
   ctx.restore()
 
   return canvas
@@ -197,8 +237,11 @@ export async function buildTestPdf(opts: {
       marks: opts.markPages?.[i],
       marked: opts.marked,
     })
-    const img = canvas.toDataURL('image/jpeg', 0.82)
-    pdf.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight)
+    const img = canvas.toDataURL('image/jpeg', 0.85)
+    const imgH = pageWidth * (canvas.height / canvas.width)
+    // Fit to width; keep natural height so empty lined paper is not stretched full-page
+    const drawH = Math.min(imgH, pageHeight)
+    pdf.addImage(img, 'JPEG', 0, 0, pageWidth, drawH)
   }
 
   return pdf.output('blob')
