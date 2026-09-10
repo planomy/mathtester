@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import type { PageInk, Point, Stroke, TextItem, Tool } from '../types'
 import { uid } from '../lib/storage'
-
-const COLORS = ['#0f172a', '#0f766e', '#b91c1c', '#1d4ed8', '#a16207']
-const WIDTHS = [2, 4, 7, 12]
+import type { PageInk, Point, Stroke, TextItem, Tool } from '../types'
 
 type Props = {
   value: PageInk
@@ -35,11 +32,17 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
 
     const resize = () => {
       const rect = wrap.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.floor(rect.width * dpr)
-      canvas.height = Math.floor(rect.height * dpr)
-      canvas.style.width = `${rect.width}px`
-      canvas.style.height = `${rect.height}px`
+      const nextW = Math.floor(rect.width * dpr)
+      const nextH = Math.floor(rect.height * dpr)
+      // Setting canvas.width clears the bitmap — only do it when size changes
+      if (canvas.width !== nextW || canvas.height !== nextH) {
+        canvas.width = nextW
+        canvas.height = nextH
+        canvas.style.width = `${rect.width}px`
+        canvas.style.height = `${rect.height}px`
+      }
       paint()
     }
 
@@ -269,4 +272,4 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
   )
 }
 
-export { COLORS, WIDTHS }
+export { COLORS, WIDTHS } from '../lib/drawing'

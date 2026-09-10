@@ -1,6 +1,7 @@
 import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { decodePayload } from '../lib/share'
+import { saveActiveTest } from '../lib/session'
 import { getTestByCode, saveAttempt } from '../lib/storage'
 import type { PageInk, Test } from '../types'
 
@@ -60,10 +61,7 @@ export function StudentJoin() {
     }
 
     const { test, teacherEmail, teacherName } = resolved
-    sessionStorage.setItem(
-      'mathtester-active-test',
-      JSON.stringify({ test, teacherEmail, teacherName }),
-    )
+    saveActiveTest({ test, teacherEmail, teacherName })
     saveAttempt({
       testId: test.id,
       testCode: test.code,
@@ -111,21 +109,4 @@ export function StudentJoin() {
       </form>
     </div>
   )
-}
-
-// re-export type guard helper for sit page
-export type ActiveTestBundle = {
-  test: Test
-  teacherEmail: string
-  teacherName: string
-}
-
-export function loadActiveTest(): ActiveTestBundle | null {
-  try {
-    const raw = sessionStorage.getItem('mathtester-active-test')
-    if (!raw) return null
-    return JSON.parse(raw) as ActiveTestBundle
-  } catch {
-    return null
-  }
 }

@@ -6,7 +6,7 @@ import { buildTestPdf, downloadBlob } from '../lib/pdf'
 import { encodePayload } from '../lib/share'
 import { addSubmission, clearAttempt, getAttempt, saveAttempt, uid } from '../lib/storage'
 import type { PageInk, Tool } from '../types'
-import { loadActiveTest } from './StudentJoin'
+import { loadActiveTest } from '../lib/session'
 
 export function StudentTest() {
   const navigate = useNavigate()

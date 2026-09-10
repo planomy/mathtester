@@ -68,7 +68,13 @@ export function TeacherSubmissions() {
 
   function updateActive(next: Submission) {
     upsertSubmission(next)
-    refresh()
+    setSubs((prev) => {
+      const i = prev.findIndex((s) => s.id === next.id)
+      if (i < 0) return [next, ...prev]
+      const copy = prev.slice()
+      copy[i] = next
+      return copy
+    })
   }
 
   function setMarks(marks: PageInk) {
@@ -272,7 +278,6 @@ export function TeacherSubmissions() {
                 marks={currentMarks}
                 onChange={setMarks}
                 tool={tool}
-                prompt={active.questionPrompts[pageIndex] || ''}
               />
             </div>
           )}

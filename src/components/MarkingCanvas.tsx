@@ -7,7 +7,6 @@ type Props = {
   marks: PageInk
   onChange: (marks: PageInk) => void
   tool: MarkTool
-  prompt: string
 }
 
 function dist(a: Point, b: Point) {
@@ -67,7 +66,30 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
+  const studentRef = useRef(studentPage)
+  const marksRef = useRef(marks)
 
+  studentRef.current = studentPage
+  marksRef.current = marks
+
+  function paint() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    paintPage(
+      ctx,
+      canvas.width / dpr,
+      canvas.height / dpr,
+      studentRef.current,
+      marksRef.current,
+      current.current,
+    )
+  }
+
+  // Size canvas once; only rewrite buffer when pixel size actually changes
   useEffect(() => {
     const canvas = canvasRef.current
     const wrap = wrapRef.current
@@ -75,37 +97,34 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
 
     const resize = () => {
       const rect = wrap.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.floor(rect.width * dpr)
-      canvas.height = Math.floor(rect.height * dpr)
-      canvas.style.width = `${rect.width}px`
-      canvas.style.height = `${rect.height}px`
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      paintPage(ctx, rect.width, rect.height, studentPage, marks, current.current)
+      const nextW = Math.floor(rect.width * dpr)
+      const nextH = Math.floor(rect.height * dpr)
+      if (canvas.width !== nextW || canvas.height !== nextH) {
+        canvas.width = nextW
+        canvas.height = nextH
+        canvas.style.width = `${rect.width}px`
+        canvas.style.height = `${rect.height}px`
+      }
+      paint()
     }
 
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
     return () => ro.disconnect()
+  }, [])
+
+  // Redraw ink without wiping the canvas buffer
+  useEffect(() => {
+    paint()
   }, [studentPage, marks])
 
   function toLocal(e: ReactPointerEvent<HTMLCanvasElement>): Point {
     const canvas = canvasRef.current!
     const rect = canvas.getBoundingClientRect()
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
-  }
-
-  function repaint() {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    paintPage(ctx, canvas.width / dpr, canvas.height / dpr, studentPage, marks, current.current)
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -156,7 +175,7 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
       width: tool === 'eraser' ? 22 : 4,
       points: [p],
     }
-    repaint()
+    paint()
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -165,7 +184,7 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
     const last = current.current.points[current.current.points.length - 1]
     if (last && dist(last, p) < 1.5) return
     current.current.points.push(p)
-    repaint()
+    paint()
   }
 
   function endStroke() {
@@ -174,7 +193,7 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
     const stroke = current.current
     current.current = null
     if (stroke.points.length < 2) {
-      repaint()
+      paint()
       return
     }
     onChange({ ...marks, strokes: [...marks.strokes, stroke] })

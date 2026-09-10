@@ -1,5 +1,5 @@
 import type { Tool } from '../types'
-import { COLORS, WIDTHS } from './InkCanvas'
+import { COLORS, WIDTHS } from '../lib/drawing'
 
 type Props = {
   tool: Tool
