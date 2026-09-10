@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf'
-import type { PageInk, Point, Stroke, TextItem } from '../types'
+import { renderInkLayer } from './inkLayer'
+import { drawLockedSource, loadLockedImage } from './lockedSource'
+import type { LockedSource, PageInk, Point, Stroke, TextItem } from '../types'
 
 const PAGE_W = 1200
 const HEADER_H = 120
@@ -11,79 +13,6 @@ const CONTENT_PAD = 48
 const FOOTER_PAD = 36
 
 export const WORK_OFFSET_Y = WORK_TOP
-
-function drawStroke(
-  ctx: CanvasRenderingContext2D,
-  points: Point[],
-  color: string,
-  width: number,
-  eraser: boolean,
-) {
-  if (points.length < 2) return
-  ctx.save()
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = width
-  if (eraser) {
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.strokeStyle = 'rgba(0,0,0,1)'
-  } else {
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = color
-  }
-  ctx.beginPath()
-  ctx.moveTo(points[0].x, points[0].y)
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(points[i].x, points[i].y)
-  }
-  ctx.stroke()
-  ctx.restore()
-}
-
-function paintInk(ctx: CanvasRenderingContext2D, page: PageInk, offsetY: number) {
-  for (const stroke of page.strokes) {
-    const pts = stroke.points.map((p) => ({ x: p.x, y: p.y + offsetY }))
-    if (stroke.tool === 'line' || stroke.tool === 'ruler') {
-      if (pts.length >= 2) {
-        drawStroke(ctx, [pts[0], pts[pts.length - 1]], stroke.color, stroke.width, false)
-      }
-    } else if (stroke.tool === 'rect' && pts.length >= 2) {
-      const a = pts[0]
-      const b = pts[pts.length - 1]
-      ctx.save()
-      ctx.strokeStyle = stroke.color
-      ctx.lineWidth = stroke.width
-      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y)
-      ctx.restore()
-    } else if (stroke.tool === 'ellipse' && pts.length >= 2) {
-      const a = pts[0]
-      const b = pts[pts.length - 1]
-      ctx.save()
-      ctx.strokeStyle = stroke.color
-      ctx.lineWidth = stroke.width
-      ctx.beginPath()
-      ctx.ellipse(
-        (a.x + b.x) / 2,
-        (a.y + b.y) / 2,
-        Math.abs(b.x - a.x) / 2,
-        Math.abs(b.y - a.y) / 2,
-        0,
-        0,
-        Math.PI * 2,
-      )
-      ctx.stroke()
-      ctx.restore()
-    } else {
-      drawStroke(ctx, pts, stroke.color, stroke.width, stroke.tool === 'eraser')
-    }
-  }
-
-  for (const t of page.texts) {
-    ctx.fillStyle = t.color
-    ctx.font = `${t.size}px system-ui, sans-serif`
-    ctx.fillText(t.text, t.x, t.y + offsetY)
-  }
-}
 
 function inkExtentY(page: PageInk): number {
   let maxY = 0
@@ -99,21 +28,22 @@ function inkExtentY(page: PageInk): number {
   return maxY
 }
 
-function workHeightFor(page: PageInk, marks?: PageInk): number {
+function workHeightFor(page: PageInk, marks?: PageInk, hasSource?: boolean): number {
   const contentY = Math.max(inkExtentY(page), marks ? inkExtentY(marks) : 0)
+  if (hasSource && contentY <= 0) return MAX_WORK_H
   if (contentY <= 0) return MIN_WORK_H
-  return Math.min(MAX_WORK_H, Math.max(MIN_WORK_H, Math.ceil(contentY + CONTENT_PAD)))
+  const base = Math.min(MAX_WORK_H, Math.max(MIN_WORK_H, Math.ceil(contentY + CONTENT_PAD)))
+  return hasSource ? Math.max(base, Math.min(MAX_WORK_H, 560)) : base
 }
 
 function promptBlockHeight(prompt: string): number {
-  // Rough wrap estimate for bold 48px / ~58 line height on PAGE_W-80
   const avgChar = 26
   const charsPerLine = Math.max(12, Math.floor((PAGE_W - 80) / avgChar))
   const lines = Math.max(1, Math.ceil((prompt || ' ').length / charsPerLine))
   return Math.min(160, lines * 58)
 }
 
-export function renderPageToCanvas(
+export async function renderPageToCanvas(
   page: PageInk,
   prompt: string,
   meta: {
@@ -123,12 +53,14 @@ export function renderPageToCanvas(
     total: number
     marks?: PageInk
     marked?: boolean
+    lockedSource?: LockedSource | null
   },
-): HTMLCanvasElement {
+): Promise<HTMLCanvasElement> {
   const promptH = promptBlockHeight(prompt)
   const workTop = Math.max(WORK_TOP, PROMPT_TOP + promptH + 24)
-  const workH = workHeightFor(page, meta.marks)
+  const workH = workHeightFor(page, meta.marks, Boolean(meta.lockedSource))
   const pageH = workTop + workH + FOOTER_PAD
+  const workW = PAGE_W - 60
 
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W
@@ -137,7 +69,6 @@ export function renderPageToCanvas(
   ctx.fillStyle = '#faf8f4'
   ctx.fillRect(0, 0, PAGE_W, pageH)
 
-  // Header
   ctx.fillStyle = '#0f766e'
   ctx.fillRect(0, 0, PAGE_W, HEADER_H)
   ctx.fillStyle = '#ecfdf5'
@@ -156,32 +87,43 @@ export function renderPageToCanvas(
     ctx.fillText('MARKED', PAGE_W - 160, 70)
   }
 
-  // Prompt
   ctx.fillStyle = '#134e4a'
   ctx.font = '700 48px system-ui, sans-serif'
   wrapText(ctx, prompt, 40, PROMPT_TOP, PAGE_W - 80, 58)
 
-  // Working area border
   ctx.strokeStyle = '#cbd5e1'
   ctx.lineWidth = 2
-  ctx.strokeRect(30, workTop, PAGE_W - 60, workH)
+  ctx.strokeRect(30, workTop, workW, workH)
 
-  // Light grid
   ctx.save()
   ctx.beginPath()
-  ctx.rect(30, workTop, PAGE_W - 60, workH)
+  ctx.rect(30, workTop, workW, workH)
   ctx.clip()
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
-  ctx.lineWidth = 1
-  for (let y = workTop; y < workTop + workH; y += 40) {
-    ctx.beginPath()
-    ctx.moveTo(30, y)
-    ctx.lineTo(PAGE_W - 30, y)
-    ctx.stroke()
+
+  if (meta.lockedSource?.dataUrl) {
+    try {
+      const img = await loadLockedImage(meta.lockedSource.dataUrl)
+      drawLockedSource(ctx, img, 30, workTop, workW, workH)
+    } catch {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(30, workTop, workW, workH)
+    }
+  } else {
+    ctx.fillStyle = '#f7f4ee'
+    ctx.fillRect(30, workTop, workW, workH)
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
+    ctx.lineWidth = 1
+    for (let y = workTop; y < workTop + workH; y += 40) {
+      ctx.beginPath()
+      ctx.moveTo(30, y)
+      ctx.lineTo(PAGE_W - 30, y)
+      ctx.stroke()
+    }
   }
 
-  paintInk(ctx, page, workTop)
-  if (meta.marks) paintInk(ctx, meta.marks, workTop)
+  const pages = [page, ...(meta.marks ? [meta.marks] : [])]
+  const ink = renderInkLayer(workW, workH, 1, pages)
+  ctx.drawImage(ink, 30, workTop)
   ctx.restore()
 
   return canvas
@@ -218,6 +160,7 @@ export async function buildTestPdf(opts: {
   pages: PageInk[]
   markPages?: PageInk[]
   marked?: boolean
+  sources?: (LockedSource | null | undefined)[]
 }): Promise<Blob> {
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -229,17 +172,17 @@ export async function buildTestPdf(opts: {
 
   for (let i = 0; i < opts.pages.length; i++) {
     if (i > 0) pdf.addPage()
-    const canvas = renderPageToCanvas(opts.pages[i], opts.prompts[i] || '', {
+    const canvas = await renderPageToCanvas(opts.pages[i], opts.prompts[i] || '', {
       studentName: opts.studentName,
       testTitle: opts.testTitle,
       index: i,
       total: opts.pages.length,
       marks: opts.markPages?.[i],
       marked: opts.marked,
+      lockedSource: opts.sources?.[i],
     })
     const img = canvas.toDataURL('image/jpeg', 0.85)
     const imgH = pageWidth * (canvas.height / canvas.width)
-    // Fit to width; keep natural height so empty lined paper is not stretched full-page
     const drawH = Math.min(imgH, pageHeight)
     pdf.addImage(img, 'JPEG', 0, 0, pageWidth, drawH)
   }
@@ -260,4 +203,4 @@ export function emptyInk(): PageInk {
   return { strokes: [], texts: [] }
 }
 
-export type { Stroke, TextItem }
+export type { Stroke, TextItem, Point }

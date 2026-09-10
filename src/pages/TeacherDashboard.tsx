@@ -1,4 +1,6 @@
+import { useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { downloadTeacherBackup, restoreTeacherBackupFromFile } from '../lib/backup'
 import {
   clearTeacherSession,
   getSubmissions,
@@ -15,6 +17,8 @@ export function TeacherDashboard() {
 
   const tests = getTests()
   const submissions = getSubmissions()
+  const backupInputRef = useRef<HTMLInputElement>(null)
+  const [backupMsg, setBackupMsg] = useState('')
 
   return (
     <div className="page">
@@ -24,10 +28,52 @@ export function TeacherDashboard() {
           <h1>{teacher.name}</h1>
           <p className="muted">{teacher.email}</p>
         </div>
-        <div className="row gap">
+        <div className="row gap wrap">
           <Link className="btn ghost" to="/teacher/submissions">
             Submissions ({submissions.length})
           </Link>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              try {
+                downloadTeacherBackup()
+                setBackupMsg('Backup downloaded — keep it somewhere safe.')
+              } catch (err) {
+                setBackupMsg(err instanceof Error ? err.message : 'Backup failed.')
+              }
+            }}
+          >
+            Save backup
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => backupInputRef.current?.click()}
+          >
+            Restore
+          </button>
+          <input
+            ref={backupInputRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (!file) return
+              void restoreTeacherBackupFromFile(file)
+                .then((r) => {
+                  setBackupMsg(
+                    `Restored ${r.submissions} submission(s) and ${r.tests} test(s).`,
+                  )
+                  window.location.reload()
+                })
+                .catch((err) => {
+                  setBackupMsg(err instanceof Error ? err.message : 'Restore failed.')
+                })
+            }}
+          />
           <button
             type="button"
             className="btn ghost"
@@ -40,6 +86,13 @@ export function TeacherDashboard() {
           </button>
         </div>
       </header>
+
+      {backupMsg && <p className="status-ok">{backupMsg}</p>}
+
+      <p className="muted">
+        Tests and student submissions live in this browser until you download a backup.
+        Restore that file on another device or after clearing site data.
+      </p>
 
       <div className="row-between section-head">
         <h2>Tests</h2>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { renderInkLayer } from '../lib/inkLayer'
+import { drawLockedSource, loadLockedImage } from '../lib/lockedSource'
 import { uid } from '../lib/storage'
-import type { PageInk, Point, Stroke, TextItem, Tool } from '../types'
+import type { LockedSource, PageInk, Point, Stroke, TextItem, Tool } from '../types'
 
 type Props = {
   value: PageInk
@@ -9,6 +11,7 @@ type Props = {
   tool: Tool
   color: string
   width: number
+  lockedSource?: LockedSource | null
 }
 
 function dist(a: Point, b: Point) {
@@ -17,13 +20,46 @@ function dist(a: Point, b: Point) {
 
 type DrawTool = Exclude<Tool, 'text'>
 
-export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: Props) {
+export function InkCanvas({
+  value,
+  onChange,
+  allowTyping,
+  tool,
+  color,
+  width,
+  lockedSource,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
+  const bgImageRef = useRef<HTMLImageElement | null>(null)
   const [draftText, setDraftText] = useState<{ x: number; y: number } | null>(null)
   const [textValue, setTextValue] = useState('')
+  const [bgReady, setBgReady] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    bgImageRef.current = null
+    if (!lockedSource?.dataUrl) {
+      setBgReady((n) => n + 1)
+      return
+    }
+    loadLockedImage(lockedSource.dataUrl)
+      .then((img) => {
+        if (cancelled) return
+        bgImageRef.current = img
+        setBgReady((n) => n + 1)
+      })
+      .catch(() => {
+        if (cancelled) return
+        bgImageRef.current = null
+        setBgReady((n) => n + 1)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [lockedSource?.dataUrl])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -37,7 +73,6 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const nextW = Math.floor(w * dpr)
       const nextH = Math.floor(h * dpr)
-      // Setting canvas.width clears the bitmap — only do it when size changes
       if (canvas.width !== nextW || canvas.height !== nextH) {
         canvas.width = nextW
         canvas.height = nextH
@@ -53,7 +88,7 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
 
   useEffect(() => {
     paint()
-  }, [value, draftText])
+  }, [value, draftText, bgReady, lockedSource?.dataUrl])
 
   function toLocal(e: ReactPointerEvent<HTMLCanvasElement>): Point {
     const canvas = canvasRef.current!
@@ -75,101 +110,36 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
     const h = canvas.height / dpr
 
     ctx.clearRect(0, 0, w, h)
-    ctx.fillStyle = '#f7f4ee'
+    ctx.fillStyle = lockedSource ? '#ffffff' : '#f7f4ee'
     ctx.fillRect(0, 0, w, h)
 
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)'
-    ctx.lineWidth = 1
-    for (let y = 40; y < h; y += 36) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(w, y)
-      ctx.stroke()
-    }
-
-    const strokes = current.current ? [...value.strokes, current.current] : value.strokes
-    for (const s of strokes) paintStroke(ctx, s)
-    for (const t of value.texts) {
-      ctx.fillStyle = t.color
-      ctx.font = `${t.size}px "Source Sans 3", system-ui, sans-serif`
-      ctx.fillText(t.text, t.x, t.y)
-    }
-  }
-
-  function paintStroke(ctx: CanvasRenderingContext2D, s: Stroke) {
-    const pts = s.points
-    if (!pts.length) return
-
-    if (s.tool === 'rect' && pts.length >= 2) {
-      const a = pts[0]
-      const b = pts[pts.length - 1]
-      ctx.save()
-      ctx.strokeStyle = s.color
-      ctx.lineWidth = s.width
-      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y)
-      ctx.restore()
-      return
-    }
-
-    if (s.tool === 'ellipse' && pts.length >= 2) {
-      const a = pts[0]
-      const b = pts[pts.length - 1]
-      ctx.save()
-      ctx.strokeStyle = s.color
-      ctx.lineWidth = s.width
-      ctx.beginPath()
-      ctx.ellipse(
-        (a.x + b.x) / 2,
-        (a.y + b.y) / 2,
-        Math.abs(b.x - a.x) / 2,
-        Math.abs(b.y - a.y) / 2,
-        0,
-        0,
-        Math.PI * 2,
-      )
-      ctx.stroke()
-      ctx.restore()
-      return
-    }
-
-    if ((s.tool === 'line' || s.tool === 'ruler') && pts.length >= 2) {
-      const a = pts[0]
-      const b = pts[pts.length - 1]
-      ctx.save()
-      ctx.strokeStyle = s.color
-      ctx.lineWidth = s.width
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(a.x, a.y)
-      ctx.lineTo(b.x, b.y)
-      ctx.stroke()
-      if (s.tool === 'ruler') {
-        const len = dist(a, b)
-        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-        ctx.fillStyle = s.color
-        ctx.font = '12px "Source Sans 3", system-ui, sans-serif'
-        ctx.fillText(`${Math.round(len)} px`, mid.x + 8, mid.y - 8)
+    if (bgImageRef.current) {
+      drawLockedSource(ctx, bgImageRef.current, 0, 0, w, h)
+    } else if (!lockedSource) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)'
+      ctx.lineWidth = 1
+      for (let y = 40; y < h; y += 36) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(w, y)
+        ctx.stroke()
       }
-      ctx.restore()
-      return
+    } else {
+      // source loading — faint grid
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)'
+      ctx.lineWidth = 1
+      for (let y = 40; y < h; y += 36) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(w, y)
+        ctx.stroke()
+      }
     }
 
-    ctx.save()
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.lineWidth = s.width
-    if (s.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = 'rgba(0,0,0,1)'
-    } else {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = s.color
-    }
-    ctx.beginPath()
-    ctx.moveTo(pts[0].x, pts[0].y)
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
-    ctx.stroke()
-    ctx.restore()
+    const ink = renderInkLayer(w, h, dpr, [{ strokes: value.strokes, texts: value.texts }], current.current)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.drawImage(ink, 0, 0)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -241,6 +211,11 @@ export function InkCanvas({ value, onChange, allowTyping, tool, color, width }: 
 
   return (
     <div className="ink-wrap" ref={wrapRef}>
+      {lockedSource && (
+        <div className="locked-source-badge" title="Locked source — write over it; eraser will not remove it">
+          Locked source{lockedSource.name ? `: ${lockedSource.name}` : ''}
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         className="ink-canvas"

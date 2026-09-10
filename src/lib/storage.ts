@@ -89,6 +89,10 @@ export function upsertSubmission(sub: Submission) {
   addSubmission(sub)
 }
 
+export function writeSubmissions(subs: Submission[]) {
+  write(KEYS.submissions, subs)
+}
+
 export function getAttempt(): StudentAttempt | null {
   return read<StudentAttempt | null>(KEYS.attempt, null)
 }

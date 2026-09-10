@@ -5,9 +5,9 @@ export function Home() {
     <div className="page home">
       <header className="brand-block">
         <p className="eyebrow">Planomy</p>
-        <h1>MathTester</h1>
+        <h1>TestPro</h1>
         <p className="lede">
-          Handwritten maths tests with room to show working — stylus, mouse, or finger.
+          Handwritten tests with room to show working — lock graphs and sources, then write over them.
         </p>
       </header>
 
@@ -23,8 +23,9 @@ export function Home() {
       <section className="home-note">
         <h2>Why it exists</h2>
         <p>
-          Typed answers hide how students got there. MathTester captures authentic working on a
-          paper-like canvas, then submits a full-test PDF to the teacher.
+          Typed answers hide how students got there. TestPro captures authentic working on a
+          paper-like canvas — including over locked images or PDF pages — then submits a full-test
+          PDF to the teacher.
         </p>
       </section>
     </div>

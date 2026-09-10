@@ -3,9 +3,10 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { DrawingToolbar } from '../components/DrawingToolbar'
 import { InkCanvas } from '../components/InkCanvas'
 import { buildTestPdf, downloadBlob } from '../lib/pdf'
+import { downloadSubmissionFile } from '../lib/backup'
 import { encodePayload } from '../lib/share'
 import { addSubmission, clearAttempt, getAttempt, saveAttempt, uid } from '../lib/storage'
-import type { PageInk, Tool } from '../types'
+import type { PageInk, Submission, Tool } from '../types'
 import { loadActiveTest } from '../lib/session'
 
 export function StudentTest() {
@@ -20,6 +21,7 @@ export function StudentTest() {
   const [busy, setBusy] = useState(false)
   const [doneMsg, setDoneMsg] = useState('')
   const [importToken, setImportToken] = useState('')
+  const [lastSubmission, setLastSubmission] = useState<Submission | null>(null)
 
   useEffect(() => {
     if (!attempt || !bundle) return
@@ -53,16 +55,18 @@ export function StudentTest() {
     setBusy(true)
     setDoneMsg('')
     try {
+      const sources = test.questions.map((q) => q.lockedSource ?? null)
       const blob = await buildTestPdf({
         testTitle: test.title,
         studentName: student.studentName,
         prompts: test.questions.map((q) => q.prompt),
         pages,
+        sources,
       })
       const filename = `${test.code}-${student.studentName.replace(/\s+/g, '_')}.pdf`
       downloadBlob(blob, filename)
 
-      const submission = {
+      const submission: Submission = {
         id: uid('sub'),
         testId: test.id,
         testTitle: test.title,
@@ -71,15 +75,18 @@ export function StudentTest() {
         submittedAt: new Date().toISOString(),
         pages,
         questionPrompts: test.questions.map((q) => q.prompt),
+        questionSources: sources,
       }
 
       // Local inbox if teacher opens on same browser; always create import token
       addSubmission(submission)
       const token = encodePayload({ v: 1, kind: 'submission', submission })
       setImportToken(token)
+      setLastSubmission(submission)
+      downloadSubmissionFile(submission)
 
       if (teacherEmail) {
-        const subject = encodeURIComponent(`MathTester: ${test.title} — ${student.studentName}`)
+        const subject = encodeURIComponent(`TestPro: ${test.title} — ${student.studentName}`)
         const body = encodeURIComponent(
           `Hi ${teacherName || 'teacher'},\n\n` +
             `${student.studentName} submitted "${test.title}" (${test.code}).\n` +
@@ -91,8 +98,8 @@ export function StudentTest() {
 
       setDoneMsg(
         teacherEmail
-          ? 'PDF downloaded and email draft opened. Keep the import token if your teacher asks for it.'
-          : 'PDF downloaded. Give the import token to your teacher.',
+          ? 'PDF + JSON downloaded and email draft opened. Keep the import token or JSON file for your teacher.'
+          : 'PDF + JSON downloaded. Give the JSON file or import token to your teacher.',
       )
       clearAttempt()
     } catch (err) {
@@ -158,6 +165,7 @@ export function StudentTest() {
         tool={tool}
         color={color}
         width={width}
+        lockedSource={question?.lockedSource}
       />
 
       {doneMsg && (
@@ -165,6 +173,15 @@ export function StudentTest() {
           <p>{doneMsg}</p>
           {importToken && (
             <textarea readOnly rows={3} value={importToken} onFocus={(e) => e.target.select()} />
+          )}
+          {lastSubmission && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => downloadSubmissionFile(lastSubmission)}
+            >
+              Download JSON again
+            </button>
           )}
           <Link className="btn ghost" to="/" onClick={() => navigate('/')}>
             Done

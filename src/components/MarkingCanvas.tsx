@@ -1,76 +1,58 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { renderInkLayer } from '../lib/inkLayer'
+import { drawLockedSource, loadLockedImage } from '../lib/lockedSource'
 import { uid } from '../lib/storage'
-import type { MarkTool, PageInk, Point, Stroke } from '../types'
+import type { LockedSource, MarkTool, PageInk, Point, Stroke } from '../types'
 
 type Props = {
   studentPage: PageInk
   marks: PageInk
   onChange: (marks: PageInk) => void
   tool: MarkTool
+  lockedSource?: LockedSource | null
 }
 
 function dist(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
-function paintPage(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  student: PageInk,
-  marks: PageInk,
-  draft: Stroke | null,
-) {
-  ctx.clearRect(0, 0, w, h)
-  ctx.fillStyle = '#f7f4ee'
-  ctx.fillRect(0, 0, w, h)
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)'
-  ctx.lineWidth = 1
-  for (let y = 36; y < h; y += 36) {
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(w, y)
-    ctx.stroke()
-  }
-
-  const all = [...student.strokes, ...marks.strokes, ...(draft ? [draft] : [])]
-  for (const s of all) {
-    if (s.points.length < 2 && s.tool === 'pen') continue
-    ctx.save()
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.lineWidth = s.width
-    if (s.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = 'rgba(0,0,0,1)'
-    } else {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = s.color
-    }
-    ctx.beginPath()
-    ctx.moveTo(s.points[0].x, s.points[0].y)
-    for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  for (const t of [...student.texts, ...marks.texts]) {
-    ctx.fillStyle = t.color
-    ctx.font = `${t.size}px "Source Sans 3", system-ui, sans-serif`
-    ctx.fillText(t.text, t.x, t.y)
-  }
-}
-
-export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
+export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
   const studentRef = useRef(studentPage)
   const marksRef = useRef(marks)
+  const bgImageRef = useRef<HTMLImageElement | null>(null)
+  const bgReady = useRef(0)
 
   studentRef.current = studentPage
   marksRef.current = marks
+
+  useEffect(() => {
+    let cancelled = false
+    bgImageRef.current = null
+    if (!lockedSource?.dataUrl) {
+      bgReady.current += 1
+      paint()
+      return
+    }
+    loadLockedImage(lockedSource.dataUrl)
+      .then((img) => {
+        if (cancelled) return
+        bgImageRef.current = img
+        bgReady.current += 1
+        paint()
+      })
+      .catch(() => {
+        if (cancelled) return
+        bgImageRef.current = null
+        paint()
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [lockedSource?.dataUrl])
 
   function paint() {
     const canvas = canvasRef.current
@@ -79,17 +61,38 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
     if (!ctx) return
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    paintPage(
-      ctx,
-      canvas.width / dpr,
-      canvas.height / dpr,
-      studentRef.current,
-      marksRef.current,
+    const w = canvas.width / dpr
+    const h = canvas.height / dpr
+
+    ctx.clearRect(0, 0, w, h)
+    ctx.fillStyle = lockedSource ? '#ffffff' : '#f7f4ee'
+    ctx.fillRect(0, 0, w, h)
+
+    if (bgImageRef.current) {
+      drawLockedSource(ctx, bgImageRef.current, 0, 0, w, h)
+    } else if (!lockedSource) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)'
+      ctx.lineWidth = 1
+      for (let y = 36; y < h; y += 36) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(w, y)
+        ctx.stroke()
+      }
+    }
+
+    const ink = renderInkLayer(
+      w,
+      h,
+      dpr,
+      [studentRef.current, marksRef.current],
       current.current,
     )
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.drawImage(ink, 0, 0)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
-  // Size canvas to the wrap box only — never feed measured size back into layout
   useEffect(() => {
     const canvas = canvasRef.current
     const wrap = wrapRef.current
@@ -124,7 +127,6 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
     }
   }, [])
 
-  // Redraw ink without wiping the canvas buffer
   useEffect(() => {
     paint()
   }, [studentPage, marks])
@@ -209,6 +211,9 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool }: Props) {
 
   return (
     <div className="ink-wrap mark-wrap" ref={wrapRef}>
+      {lockedSource && (
+        <div className="locked-source-badge">Locked source</div>
+      )}
       <canvas
         ref={canvasRef}
         className="ink-canvas"

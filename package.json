@@ -1,5 +1,5 @@
 {
-  "name": "mathtester",
+  "name": "testpro",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,6 +12,7 @@
   "dependencies": {
     "jspdf": "^3.0.1",
     "lz-string": "^1.5.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.6.2"

@@ -1,5 +1,8 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import {
+  fileToLockedSource,
+} from '../lib/lockedSource'
 import { absoluteJoinUrl, encodePayload, type SharedTestPayload } from '../lib/share'
 import {
   deleteTest,
@@ -33,6 +36,58 @@ export function TeacherTestEditor() {
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
+  const [sourceBusyId, setSourceBusyId] = useState<string | null>(null)
+  const [sourceError, setSourceError] = useState('')
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  async function attachSource(questionId: string, file: File) {
+    setSourceError('')
+    setSourceBusyId(questionId)
+    try {
+      const lockedSource = await fileToLockedSource(file)
+      setQuestions((all) =>
+        all.map((x) => (x.id === questionId ? { ...x, lockedSource } : x)),
+      )
+    } catch (err) {
+      setSourceError(err instanceof Error ? err.message : 'Could not attach source.')
+    } finally {
+      setSourceBusyId(null)
+    }
+  }
+
+  async function pasteSource(questionId: string) {
+    setSourceError('')
+    setSourceBusyId(questionId)
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith('image/'))
+        if (!type) continue
+        const blob = await item.getType(type)
+        const file = new File([blob], 'pasted-image.png', { type: blob.type })
+        const lockedSource = await fileToLockedSource(file)
+        setQuestions((all) =>
+          all.map((x) => (x.id === questionId ? { ...x, lockedSource } : x)),
+        )
+        return
+      }
+      setSourceError('No image on clipboard. Copy a screenshot first, or upload a file.')
+    } catch {
+      setSourceError('Clipboard paste blocked — use Upload image/PDF instead.')
+    } finally {
+      setSourceBusyId(null)
+    }
+  }
+
+  function clearSource(questionId: string) {
+    setQuestions((all) =>
+      all.map((x) => {
+        if (x.id !== questionId) return x
+        const { lockedSource: _, ...rest } = x
+        return rest
+      }),
+    )
+  }
 
   useEffect(() => {
     if (!focusQuestionId) return
@@ -87,7 +142,11 @@ export function TeacherTestEditor() {
         id: test.id,
         title: test.title,
         // Strip teacher answers — students must never receive them
-        questions: test.questions.map(({ id, prompt }) => ({ id, prompt })),
+        questions: test.questions.map(({ id, prompt, lockedSource }) => ({
+          id,
+          prompt,
+          lockedSource,
+        })),
         allowTyping: test.allowTyping,
         code: test.code,
         createdAt: test.createdAt,
@@ -171,8 +230,64 @@ export function TeacherTestEditor() {
                 }
               />
             </label>
+
+            <div className="locked-source-edit">
+              <div className="row-between wrap">
+                <strong>Locked source</strong>
+                <span className="muted">Image or PDF page — kids write over it</span>
+              </div>
+              {q.lockedSource ? (
+                <div className="locked-source-preview">
+                  <img src={q.lockedSource.dataUrl} alt={q.lockedSource.name || 'Locked source'} />
+                  <div className="row gap wrap">
+                    <span className="muted">{q.lockedSource.name || 'Source attached'}</span>
+                    <button
+                      type="button"
+                      className="linkish"
+                      onClick={() => clearSource(q.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="row gap wrap">
+                  <input
+                    ref={(el) => {
+                      fileInputRefs.current[q.id] = el
+                    }}
+                    type="file"
+                    accept="image/*,application/pdf,.pdf"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      e.target.value = ''
+                      if (file) void attachSource(q.id, file)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={sourceBusyId === q.id}
+                    onClick={() => fileInputRefs.current[q.id]?.click()}
+                  >
+                    {sourceBusyId === q.id ? 'Attaching…' : 'Upload image / PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={sourceBusyId === q.id}
+                    onClick={() => void pasteSource(q.id)}
+                  >
+                    Paste image
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ))}
+
+        {sourceError && <p className="error">{sourceError}</p>}
 
         <button
           type="button"

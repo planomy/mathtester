@@ -1,6 +1,12 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { MarkingCanvas } from '../components/MarkingCanvas'
+import {
+  downloadSubmissionFile,
+  downloadTeacherBackup,
+  importSubmissionFromFile,
+  restoreTeacherBackupFromFile,
+} from '../lib/backup'
 import { buildTestPdf, downloadBlob, emptyInk } from '../lib/pdf'
 import { decodePayload } from '../lib/share'
 import {
@@ -11,7 +17,7 @@ import {
   hasTeacherSession,
   upsertSubmission,
 } from '../lib/storage'
-import type { MarkTool, PageInk, Submission } from '../types'
+import type { LockedSource, MarkTool, PageInk, Submission } from '../types'
 
 function ensureMarkPages(sub: Submission): PageInk[] {
   if (sub.markPages && sub.markPages.length === sub.pages.length) return sub.markPages
@@ -27,11 +33,14 @@ export function TeacherSubmissions() {
   const [subs, setSubs] = useState(() => getSubmissions())
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
+  const [statusMsg, setStatusMsg] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [pageIndex, setPageIndex] = useState(0)
   const [tool, setTool] = useState<MarkTool>('tick')
   const [busy, setBusy] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const backupInputRef = useRef<HTMLInputElement>(null)
+  const submissionFileRef = useRef<HTMLInputElement>(null)
 
   const active = useMemo(
     () => subs.find((s) => s.id === activeId) ?? null,
@@ -46,8 +55,23 @@ export function TeacherSubmissions() {
     return active.questionPrompts.map((_, i) => test?.questions[i]?.answer?.trim() || '')
   }, [active])
 
+  const lockedSources = useMemo(() => {
+    if (!active) return [] as (LockedSource | null | undefined)[]
+    if (active.questionSources?.length) return active.questionSources
+    const test =
+      getTests().find((t) => t.id === active.testId) ||
+      getTests().find((t) => t.code === active.testCode)
+    return active.questionPrompts.map((_, i) => test?.questions[i]?.lockedSource)
+  }, [active])
+
   function refresh() {
     setSubs(getSubmissions())
+  }
+
+  function flash(msg: string) {
+    setStatusMsg(msg)
+    setError('')
+    window.setTimeout(() => setStatusMsg(''), 4000)
   }
 
   function onImport(e: FormEvent) {
@@ -64,6 +88,35 @@ export function TeacherSubmissions() {
     setPageIndex(0)
     setToken('')
     setShowImport(false)
+    flash(`Imported ${payload.submission.studentName}.`)
+  }
+
+  async function onRestoreBackup(file: File) {
+    setError('')
+    try {
+      const result = await restoreTeacherBackupFromFile(file)
+      refresh()
+      flash(
+        `Restored backup: ${result.submissions} submission(s), ${result.tests} test(s).`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not restore backup.')
+    }
+  }
+
+  async function onImportSubmissionFile(file: File) {
+    setError('')
+    try {
+      const submission = await importSubmissionFromFile(file)
+      addSubmission(submission)
+      refresh()
+      setActiveId(submission.id)
+      setPageIndex(0)
+      setShowImport(false)
+      flash(`Imported ${submission.studentName}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not import file.')
+    }
   }
 
   function updateActive(next: Submission) {
@@ -112,9 +165,11 @@ export function TeacherSubmissions() {
         pages: marked.pages,
         markPages: marked.markPages,
         marked: true,
+        sources: lockedSources,
       })
       const safeName = marked.studentName.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_')
       downloadBlob(blob, `marked-${safeName}-${marked.testCode}.pdf`)
+      flash('Marked PDF downloaded. Marks stay saved here — download a backup too.')
     } finally {
       setBusy(false)
     }
@@ -132,15 +187,56 @@ export function TeacherSubmissions() {
             ← Dashboard
           </Link>
           <h1>Submissions</h1>
+          <p className="muted compact-note">
+            Marks auto-save in this browser. Download a backup so you don’t lose the inbox.
+          </p>
         </div>
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => setShowImport((v) => !v)}
-        >
-          {showImport ? 'Hide import' : 'Import token'}
-        </button>
+        <div className="row gap wrap">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              try {
+                downloadTeacherBackup()
+                flash('Backup downloaded.')
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Backup failed.')
+              }
+            }}
+          >
+            Save backup
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => backupInputRef.current?.click()}
+          >
+            Restore backup
+          </button>
+          <input
+            ref={backupInputRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) void onRestoreBackup(file)
+            }}
+          />
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => setShowImport((v) => !v)}
+          >
+            {showImport ? 'Hide import' : 'Import'}
+          </button>
+        </div>
       </header>
+
+      {(statusMsg || error) && (
+        <p className={error ? 'error' : 'status-ok'}>{error || statusMsg}</p>
+      )}
 
       {showImport && (
         <form className="stack import-bar" onSubmit={onImport}>
@@ -153,10 +249,29 @@ export function TeacherSubmissions() {
               placeholder="Paste token from student submit screen"
             />
           </label>
-          {error && <p className="error">{error}</p>}
-          <button className="btn primary" type="submit">
-            Import
-          </button>
+          <div className="row gap wrap">
+            <button className="btn primary" type="submit">
+              Import token
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => submissionFileRef.current?.click()}
+            >
+              Import JSON file
+            </button>
+            <input
+              ref={submissionFileRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) void onImportSubmissionFile(file)
+              }}
+            />
+          </div>
         </form>
       )}
 
@@ -219,6 +334,16 @@ export function TeacherSubmissions() {
                   </button>
                   <button
                     type="button"
+                    className="btn ghost"
+                    onClick={() => {
+                      downloadSubmissionFile(active)
+                      flash('Submission JSON downloaded.')
+                    }}
+                  >
+                    Save this student
+                  </button>
+                  <button
+                    type="button"
                     className="btn primary"
                     disabled={busy}
                     onClick={saveMarkedAndDownload}
@@ -278,6 +403,7 @@ export function TeacherSubmissions() {
                 marks={currentMarks}
                 onChange={setMarks}
                 tool={tool}
+                lockedSource={lockedSources[pageIndex]}
               />
             </div>
           )}

@@ -1,16 +1,19 @@
-# MathTester
+# TestPro
 
-Handwritten maths testing for authentic student working — stylus, mouse, or finger.
+Handwritten tests with authentic student working — stylus, mouse, or finger. Teachers can lock images or PDF pages under the canvas so students write over graphs and sources.
 
-**Live app (once Pages is on):** https://planomy.github.io/mathtester/
+**Live app:** https://planomy.github.io/mathtester/
+
+(Product name: **TestPro**. Repo folder remains `mathtester` for the GitHub Pages path.)
 
 ## Flow
 
 1. **Teacher** sets name, email, and a 4-digit PIN on this device.
-2. Create a test with one question per slide; optionally disable the typing tool.
+2. Create a test with one question per slide; optionally attach a locked image/PDF and disable the typing tool.
 3. **Publish** to get a student link (data travels in the link — no server required for joining).
-4. **Student** joins, works on a paper-like canvas, submits → full-test **PDF** downloads and a `mailto:` draft opens to the teacher email.
-5. Teacher can also **import a submission token** under Submissions to review working in-app.
+4. **Student** joins, works on a paper-like canvas, submits → full-test **PDF** (+ JSON) downloads and a `mailto:` draft opens to the teacher email.
+5. Teacher **imports** a token or JSON under Submissions, marks in-app, and downloads a marked PDF.
+6. Use **Save backup** so tests and submissions survive browser clears or a new device.
 
 ## Develop
 
@@ -21,7 +24,7 @@ npm run dev
 
 ## Deploy (GitHub Pages)
 
-Built into `/docs` from `main` (same pattern as Mathies).
+Built into `/docs` from `main`.
 
 ```bash
 npm run build
