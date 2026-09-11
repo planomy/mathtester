@@ -524,7 +524,8 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .publish-ready,
-  .save-reminder {
+  .save-reminder,
+  .share-box-revealed {
     animation: none;
   }
 }
@@ -787,6 +788,58 @@ textarea {
   margin: 28px 0 12px;
 }
 
+.test-details-panel {
+  padding: 16px;
+  border: 2px solid #5eead4;
+  border-radius: var(--radius);
+  background: linear-gradient(110deg, #f0fdfa, rgba(255, 255, 255, 0.96));
+  box-shadow: 0 8px 24px rgba(15, 118, 110, 0.08);
+  display: grid;
+  gap: 13px;
+}
+
+.test-details-head,
+.share-box-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.test-details-head h2 {
+  font-family: var(--display);
+  font-size: 1.35rem;
+}
+
+.test-details-head .eyebrow,
+.share-box-heading .eyebrow {
+  margin-bottom: 1px;
+}
+
+.test-question-count {
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--teal-dark);
+  background: var(--teal-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.test-title-field {
+  color: var(--teal-dark);
+}
+
+.test-title-field input {
+  border-color: #5eead4;
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.test-details-panel .check {
+  font-size: 0.95rem;
+}
+
 .section-head h2,
 .share-box h2,
 .review h2 {
@@ -906,6 +959,53 @@ textarea {
   border: 1px solid var(--border);
   display: grid;
   gap: 12px;
+}
+
+.share-box-revealed {
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 5px rgba(45, 212, 191, 0.15), 0 16px 36px rgba(15, 118, 110, 0.16);
+  animation: share-box-arrive 700ms ease-out;
+}
+
+.share-box-heading {
+  justify-content: flex-start;
+}
+
+.share-box-heading > span {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ecfdf5;
+  background: var(--teal);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+@keyframes share-box-arrive {
+  0% {
+    opacity: 0.55;
+    transform: translateY(12px);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .test-details-head {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-box-revealed {
+    animation: none;
+  }
 }
 
 .sit {

@@ -148,7 +148,10 @@ export function TeacherTestEditor() {
   const [isPublished, setIsPublished] = useState(existing?.published ?? false)
   const [saveStatus, setSaveStatus] = useState('')
   const [publishReminder, setPublishReminder] = useState('')
+  const [shareRevealCount, setShareRevealCount] = useState(0)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const shareBoxRef = useRef<HTMLElement | null>(null)
+  const copyLinkRef = useRef<HTMLButtonElement | null>(null)
   const currentSnapshot = useMemo(
     () => editorSnapshot(title, questions, allowTyping),
     [title, questions, allowTyping],
@@ -183,7 +186,7 @@ export function TeacherTestEditor() {
       setAiResponse('')
       setShowAiBuilder(false)
       setAiStatus(
-        `${imported.questions.length} questions imported with answers. Review them, then save or publish.`,
+        `${imported.questions.length} questions imported with answers. Review them, then save and publish.`,
       )
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -248,6 +251,15 @@ export function TeacherTestEditor() {
     input?.focus()
     setFocusQuestionId(null)
   }, [focusQuestionId, questions])
+
+  useEffect(() => {
+    if (shareRevealCount === 0) return
+    const frame = window.requestAnimationFrame(() => {
+      shareBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      copyLinkRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [shareRevealCount])
 
   if (!teacher || !hasTeacherSession()) {
     return <Navigate to="/teacher" replace />
@@ -319,6 +331,7 @@ export function TeacherTestEditor() {
     const data = encodePayload(payload)
     const url = absoluteJoinUrl(test.code, data)
     setShareUrl(url)
+    setShareRevealCount((count) => count + 1)
   }
 
   async function copyLink() {
@@ -455,19 +468,34 @@ export function TeacherTestEditor() {
       )}
 
       <form className="stack" onSubmit={onSave}>
-        <label>
-          Test title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
+        <section className="test-details-panel">
+          <div className="test-details-head">
+            <div>
+              <p className="eyebrow">Test details</p>
+              <h2>Name your test</h2>
+            </div>
+            <span className="test-question-count">
+              {questions.length} {questions.length === 1 ? 'question' : 'questions'}
+            </span>
+          </div>
+          <label className="test-title-field">
+            Test title
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Year 5 Multiplication Test"
+            />
+          </label>
 
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={allowTyping}
-            onChange={(e) => setAllowTyping(e.target.checked)}
-          />
-          Allow typing tool on student canvas
-        </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={allowTyping}
+              onChange={(e) => setAllowTyping(e.target.checked)}
+            />
+            Allow typing tool on student canvas
+          </label>
+        </section>
 
         <div className="section-head">
           <h2>Questions</h2>
@@ -616,8 +644,18 @@ export function TeacherTestEditor() {
       </form>
 
       {(shareUrl || isPublished) && (
-        <section className="share-box">
-          <h2>Student access</h2>
+        <section
+          key={`share-${shareRevealCount}`}
+          ref={shareBoxRef}
+          className={`share-box${shareRevealCount > 0 ? ' share-box-revealed' : ''}`}
+        >
+          <div className="share-box-heading">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <p className="eyebrow">Published</p>
+              <h2>Student link ready</h2>
+            </div>
+          </div>
           <p className="muted">
             Share the link or QR it on the board. Join code:{' '}
             <strong>{existing?.code ?? shareUrl.match(/join\/([^?]+)/)?.[1]}</strong>
@@ -625,7 +663,12 @@ export function TeacherTestEditor() {
           {shareUrl && (
             <>
               <textarea readOnly rows={4} value={shareUrl} />
-              <button type="button" className="btn primary" onClick={copyLink}>
+              <button
+                ref={copyLinkRef}
+                type="button"
+                className="btn primary"
+                onClick={copyLink}
+              >
                 {copied ? 'Copied' : 'Copy link'}
               </button>
             </>
