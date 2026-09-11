@@ -19,6 +19,10 @@ function blankQuestion(): Question {
   return { id: uid('q'), prompt: '', answer: '' }
 }
 
+function editorSnapshot(title: string, questions: Question[], allowTyping: boolean) {
+  return JSON.stringify({ title, questions, allowTyping })
+}
+
 type AiSettings = {
   yearLevel: string
   topic: string
@@ -132,7 +136,24 @@ export function TeacherTestEditor() {
   const [aiStatus, setAiStatus] = useState('')
   const [aiError, setAiError] = useState('')
   const [aiCopied, setAiCopied] = useState(false)
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(() =>
+    existing
+      ? editorSnapshot(
+          existing.title,
+          existing.questions?.length ? existing.questions : [blankQuestion()],
+          existing.allowTyping ?? true,
+        )
+      : null,
+  )
+  const [isPublished, setIsPublished] = useState(existing?.published ?? false)
+  const [saveStatus, setSaveStatus] = useState('')
+  const [publishReminder, setPublishReminder] = useState('')
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const currentSnapshot = useMemo(
+    () => editorSnapshot(title, questions, allowTyping),
+    [title, questions, allowTyping],
+  )
+  const isSaved = savedSnapshot !== null && savedSnapshot === currentSnapshot
 
   function updateAiSetting(key: keyof AiSettings, value: string) {
     const next = { ...aiSettings, [key]: value }
@@ -254,16 +275,27 @@ export function TeacherTestEditor() {
 
   function onSave(e: FormEvent) {
     e.preventDefault()
-    const test = buildTest(existing?.published ?? false)
+    const test = buildTest(isPublished)
     if (test.questions.length === 0) return
     upsertTest(test)
+    setSavedSnapshot(currentSnapshot)
+    setSaveStatus('Saved — ready to publish.')
+    setPublishReminder('')
     navigate(`/teacher/tests/${test.id}`, { replace: true })
   }
 
   function onPublish() {
+    if (!isSaved) {
+      setSaveStatus('')
+      setPublishReminder('Save this test first. Publish will light up when it is ready.')
+      return
+    }
+
     const test = buildTest(true, existing?.code ?? makeCode())
     if (test.questions.length === 0) return
     upsertTest(test)
+    setIsPublished(true)
+    setPublishReminder('')
 
     const payload: SharedTestPayload = {
       v: 1,
@@ -550,11 +582,16 @@ export function TeacherTestEditor() {
           Add question
         </button>
 
-        <div className="row gap wrap">
-          <button className="btn primary" type="submit">
+        <div className="row gap wrap test-editor-actions">
+          <button className={`btn primary${publishReminder ? ' save-reminder' : ''}`} type="submit">
             Save
           </button>
-          <button className="btn ghost" type="button" onClick={onPublish}>
+          <button
+            className={`btn ${isSaved ? 'primary publish-ready' : 'ghost publish-waiting'}`}
+            type="button"
+            onClick={onPublish}
+            aria-describedby={publishReminder ? 'publish-reminder' : undefined}
+          >
             Publish & get student link
           </button>
           {existing && (
@@ -570,9 +607,15 @@ export function TeacherTestEditor() {
             </button>
           )}
         </div>
+        {isSaved && saveStatus && <p className="publish-status">✓ {saveStatus}</p>}
+        {publishReminder && (
+          <p className="publish-reminder" id="publish-reminder" role="alert">
+            {publishReminder}
+          </p>
+        )}
       </form>
 
-      {(shareUrl || existing?.published) && (
+      {(shareUrl || isPublished) && (
         <section className="share-box">
           <h2>Student access</h2>
           <p className="muted">
@@ -587,7 +630,7 @@ export function TeacherTestEditor() {
               </button>
             </>
           )}
-          {!shareUrl && existing?.published && (
+          {!shareUrl && isPublished && (
             <button type="button" className="btn ghost" onClick={onPublish}>
               Refresh share link
             </button>
