@@ -24,6 +24,14 @@ function ensureMarkPages(sub: Submission): PageInk[] {
   return sub.pages.map(() => emptyInk())
 }
 
+const MARK_TOOLS: { id: MarkTool; label: string; title: string }[] = [
+  { id: 'tick', label: '✓', title: 'Tick' },
+  { id: 'cross', label: '✗', title: 'Cross' },
+  { id: 'pen', label: 'Pen', title: 'Pen' },
+  { id: 'text', label: 'Note', title: 'Note' },
+  { id: 'eraser', label: 'Eraser', title: 'Eraser' },
+]
+
 export function TeacherSubmissions() {
   const teacher = getTeacher()
   if (!teacher || !hasTeacherSession()) {
@@ -169,7 +177,7 @@ export function TeacherSubmissions() {
       })
       const safeName = marked.studentName.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_')
       downloadBlob(blob, `marked-${safeName}-${marked.testCode}.pdf`)
-      flash('Marked PDF downloaded. Marks stay saved here — download a backup too.')
+      flash('Marked PDF downloaded.')
     } finally {
       setBusy(false)
     }
@@ -178,6 +186,9 @@ export function TeacherSubmissions() {
   const markPages = active ? ensureMarkPages(active) : []
   const currentMarks = markPages[pageIndex] ?? emptyInk()
   const currentStudent = active?.pages[pageIndex] ?? emptyInk()
+  const answerText = active
+    ? answers[pageIndex] || 'No answer in editor'
+    : ''
 
   return (
     <div className="marking-page">
@@ -187,14 +198,11 @@ export function TeacherSubmissions() {
             ← Dashboard
           </Link>
           <h1>Submissions</h1>
-          <p className="muted compact-note">
-            Marks auto-save in this browser. Download a backup so you don’t lose the inbox.
-          </p>
         </div>
-        <div className="row gap wrap marking-top-actions">
+        <div className="marking-top-actions">
           <button
             type="button"
-            className="btn ghost"
+            className="marking-quiet-action"
             onClick={() => {
               try {
                 downloadTeacherBackup()
@@ -204,14 +212,14 @@ export function TeacherSubmissions() {
               }
             }}
           >
-            Save backup
+            Backup
           </button>
           <button
             type="button"
-            className="btn ghost"
+            className="marking-quiet-action"
             onClick={() => backupInputRef.current?.click()}
           >
-            Restore backup
+            Restore
           </button>
           <input
             ref={backupInputRef}
@@ -226,7 +234,7 @@ export function TeacherSubmissions() {
           />
           <button
             type="button"
-            className="btn ghost"
+            className="marking-quiet-action"
             onClick={() => setShowImport((v) => !v)}
           >
             {showImport ? 'Hide import' : 'Import'}
@@ -235,7 +243,9 @@ export function TeacherSubmissions() {
       </header>
 
       {(statusMsg || error) && (
-        <p className={error ? 'error' : 'status-ok'}>{error || statusMsg}</p>
+        <p className={error ? 'error marking-banner' : 'status-ok marking-banner'}>
+          {error || statusMsg}
+        </p>
       )}
 
       {showImport && (
@@ -277,7 +287,10 @@ export function TeacherSubmissions() {
 
       <div className="marking-split">
         <aside className="marking-sidebar">
-          <h2 className="sidebar-heading">Students</h2>
+          <div className="sidebar-heading-row">
+            <h2 className="sidebar-heading">Students</h2>
+            <span className="sidebar-count">{subs.length}</span>
+          </div>
           {subs.length === 0 ? (
             <p className="empty compact">No submissions yet.</p>
           ) : (
@@ -292,9 +305,18 @@ export function TeacherSubmissions() {
                       setPageIndex(0)
                     }}
                   >
-                    <strong>{s.studentName}</strong>
-                    <span>
-                      {s.status === 'marked' ? 'Marked' : 'Received'} · {s.testCode}
+                    <span className="sidebar-name">{s.studentName}</span>
+                    <span className="sidebar-meta">
+                      <span
+                        className={
+                          s.status === 'marked'
+                            ? 'sidebar-chip marked'
+                            : 'sidebar-chip received'
+                        }
+                      >
+                        {s.status === 'marked' ? 'Marked' : 'Received'}
+                      </span>
+                      <span>{s.testCode}</span>
                     </span>
                   </button>
                 </li>
@@ -305,42 +327,46 @@ export function TeacherSubmissions() {
 
         <section className="marking-main">
           {!active ? (
-            <p className="empty">Select a student on the left to start marking.</p>
+            <p className="empty marking-empty">Select a student to start marking.</p>
           ) : (
             <div className="marking">
-              <header className="row-between wrap marking-student-bar">
+              <header className="marking-student-bar">
                 <div className="marking-student-title">
                   <h2>{active.studentName}</h2>
                   <p className="muted">
                     {active.testTitle} · Q{pageIndex + 1}/{active.pages.length}
                   </p>
                 </div>
-                <div className="row gap wrap marking-student-actions">
+                <div className="marking-student-actions">
+                  <div className="marking-pager" role="group" aria-label="Question">
+                    <button
+                      type="button"
+                      className="btn ghost marking-pager-btn"
+                      disabled={pageIndex === 0}
+                      onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost marking-pager-btn"
+                      disabled={pageIndex >= active.pages.length - 1}
+                      onClick={() =>
+                        setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))
+                      }
+                    >
+                      Next
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className="btn ghost"
-                    disabled={pageIndex === 0}
-                    onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    disabled={pageIndex >= active.pages.length - 1}
-                    onClick={() => setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))}
-                  >
-                    Next
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost"
+                    className="marking-quiet-action"
                     onClick={() => {
                       downloadSubmissionFile(active)
-                      flash('Submission JSON downloaded.')
+                      flash('Student JSON downloaded.')
                     }}
                   >
-                    Save student
+                    Save JSON
                   </button>
                   <button
                     type="button"
@@ -348,65 +374,57 @@ export function TeacherSubmissions() {
                     disabled={busy}
                     onClick={saveMarkedAndDownload}
                   >
-                    {busy ? 'Building…' : 'Finish & download PDF'}
+                    {busy ? 'Building…' : 'Finish PDF'}
                   </button>
                 </div>
               </header>
 
-              <div className="marking-control-row">
-                <div className="answer-key">
-                  <strong>Answer</strong>
-                  <p>
-                    {answers[pageIndex] ||
-                      'No answer saved — add one in the test editor.'}
-                  </p>
-                </div>
+              <p className="prompt marking-prompt">{active.questionPrompts[pageIndex]}</p>
 
-                <div className="toolbar" aria-label="Marking tools">
-                  <div className="toolbar-group">
-                    {(
-                      [
-                        ['tick', '✓ Tick'],
-                        ['cross', '✗ Cross'],
-                        ['pen', 'Pen'],
-                        ['text', 'Note'],
-                        ['eraser', 'Eraser'],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={tool === id ? 'tool active' : 'tool'}
-                        onClick={() => setTool(id)}
-                      >
-                        {label}
-                      </button>
-                    ))}
+              <div className="marking-stage">
+                <MarkingCanvas
+                  studentPage={currentStudent}
+                  marks={currentMarks}
+                  onChange={setMarks}
+                  tool={tool}
+                  lockedSource={lockedSources[pageIndex]}
+                />
+
+                <div className="marking-float-bar" aria-label="Marking tools">
+                  <div className="marking-answer-chip" title={answerText}>
+                    <span>Answer</span>
+                    <strong>{answerText}</strong>
                   </div>
-                  <div className="toolbar-group">
-                    <button type="button" className="tool" onClick={undoMark}>
-                      Undo
-                    </button>
-                    <button
-                      type="button"
-                      className="tool danger"
-                      onClick={() => setMarks(emptyInk())}
-                    >
-                      Clear
-                    </button>
+                  <div className="toolbar marking-float-tools">
+                    <div className="toolbar-group">
+                      {MARK_TOOLS.map(({ id, label, title }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          title={title}
+                          aria-label={title}
+                          className={tool === id ? 'tool active' : 'tool'}
+                          onClick={() => setTool(id)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="toolbar-group">
+                      <button type="button" className="tool" onClick={undoMark}>
+                        Undo
+                      </button>
+                      <button
+                        type="button"
+                        className="tool danger"
+                        onClick={() => setMarks(emptyInk())}
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <p className="prompt">{active.questionPrompts[pageIndex]}</p>
-
-              <MarkingCanvas
-                studentPage={currentStudent}
-                marks={currentMarks}
-                onChange={setMarks}
-                tool={tool}
-                lockedSource={lockedSources[pageIndex]}
-              />
             </div>
           )}
         </section>
