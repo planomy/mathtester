@@ -1,0 +1,340 @@
+/* TestPro editor visual refresh.
+   Scoped to the test editor via :has(.test-details-panel) so the student and marking views stay untouched. */
+
+body:has(.test-details-panel) {
+  background:
+    radial-gradient(900px 520px at 0% 0%, rgba(204, 251, 241, 0.55), transparent 58%),
+    radial-gradient(780px 480px at 100% 0%, rgba(219, 234, 254, 0.62), transparent 56%),
+    #f3f7f8;
+}
+
+.page:has(.test-details-panel) {
+  max-width: 1180px;
+  padding: 34px 28px 104px;
+}
+
+.page:has(.test-details-panel) > .back {
+  margin-bottom: 8px;
+  color: #0f766e;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.page:has(.test-details-panel) > h1 {
+  font-size: clamp(2.35rem, 5vw, 3.65rem);
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  margin-bottom: 4px;
+}
+
+.page:has(.test-details-panel) > h1::after {
+  content: 'Create, refine and publish without the clutter.';
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.page:has(.test-details-panel) .ai-builder-launch {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid rgba(45, 212, 191, 0.55);
+  border-radius: 18px;
+  background: linear-gradient(100deg, rgba(236, 253, 245, 0.96), rgba(255, 255, 255, 0.92));
+  box-shadow: 0 12px 34px rgba(15, 118, 110, 0.08);
+}
+
+.page:has(.test-details-panel) .ai-builder-launch strong {
+  font-size: 1.28rem;
+}
+
+.page:has(.test-details-panel) .ai-builder-launch p {
+  color: #64748b;
+}
+
+.page:has(.test-details-panel) .ai-builder-launch .btn {
+  min-width: 132px;
+  min-height: 46px;
+  padding-inline: 1.25rem;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.14);
+}
+
+.page:has(.test-details-panel) .ai-builder {
+  border-radius: 20px;
+  border-color: rgba(148, 163, 184, 0.45);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.09);
+}
+
+.page:has(.test-details-panel) .stack {
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.page:has(.test-details-panel) .test-details-panel {
+  padding: 22px 24px;
+  border: 1px solid rgba(45, 212, 191, 0.58);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.07);
+  gap: 16px;
+}
+
+.page:has(.test-details-panel) .test-details-head h2 {
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+}
+
+.page:has(.test-details-panel) .test-details-head .eyebrow {
+  color: #0d9488;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+}
+
+.page:has(.test-details-panel) .test-question-count {
+  padding: 6px 11px;
+  background: #e8fbf7;
+  border: 1px solid #c6f6ec;
+  color: #0f766e;
+}
+
+.page:has(.test-details-panel) .test-title-field {
+  color: #334155;
+}
+
+.page:has(.test-details-panel) .test-title-field input {
+  min-height: 54px;
+  border: 1px solid #b9e8df;
+  border-radius: 14px;
+  background: #ffffff;
+  padding-inline: 1rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+.page:has(.test-details-panel) input:focus,
+.page:has(.test-details-panel) textarea:focus,
+.page:has(.test-details-panel) select:focus {
+  outline: 3px solid rgba(20, 184, 166, 0.13);
+  border-color: #2dd4bf;
+}
+
+.page:has(.test-details-panel) .test-details-panel .check {
+  width: fit-content;
+  padding: 4px 2px;
+  color: #334155;
+}
+
+.page:has(.test-details-panel) .section-head {
+  margin: 28px 0 0;
+}
+
+.page:has(.test-details-panel) .section-head h2 {
+  font-size: 1.7rem;
+  letter-spacing: -0.025em;
+}
+
+.page:has(.test-details-panel) .question-edit {
+  padding: 20px 22px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.055);
+  gap: 12px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.page:has(.test-details-panel) .question-edit:focus-within {
+  border-color: rgba(45, 212, 191, 0.75);
+  box-shadow: 0 16px 38px rgba(15, 118, 110, 0.11);
+  transform: translateY(-1px);
+}
+
+.page:has(.test-details-panel) .question-edit > .row-between:first-child {
+  min-height: 34px;
+  padding-bottom: 2px;
+}
+
+.page:has(.test-details-panel) .question-edit > .row-between:first-child strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef8f6;
+  color: #0f766e;
+  font-size: 0.88rem;
+}
+
+.page:has(.test-details-panel) .question-edit > textarea {
+  min-height: 116px;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  border-color: #cbd5e1;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.page:has(.test-details-panel) .answer-field {
+  margin-top: 2px;
+  color: #334155;
+}
+
+.page:has(.test-details-panel) .answer-field > .muted {
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.page:has(.test-details-panel) .answer-field textarea {
+  min-height: 82px;
+  margin-top: 6px;
+  padding: 0.85rem 1rem;
+  border: 1px solid #a7e7dc;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f2fcfa, #f8fffd);
+}
+
+.page:has(.test-details-panel) .locked-source-edit {
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.page:has(.test-details-panel) .locked-source-edit > .row-between strong {
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.page:has(.test-details-panel) .locked-source-edit .btn.ghost {
+  background: #f8fafc;
+}
+
+.page:has(.test-details-panel) .question-edit + .question-edit {
+  margin-top: 2px;
+}
+
+.page:has(.test-details-panel) .stack > .btn.ghost[type='button'] {
+  justify-self: start;
+  min-height: 44px;
+  padding-inline: 1.15rem;
+  border-color: #bfd5d2;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.page:has(.test-details-panel) .test-editor-actions {
+  position: sticky;
+  bottom: 16px;
+  z-index: 12;
+  width: fit-content;
+  max-width: calc(100vw - 40px);
+  margin: 14px 0 0 auto;
+  padding: 10px;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+.page:has(.test-details-panel) .test-editor-actions .btn {
+  min-height: 44px;
+  padding: 0.68rem 1.22rem;
+}
+
+.page:has(.test-details-panel) .test-editor-actions .btn.primary {
+  box-shadow: 0 7px 16px rgba(15, 118, 110, 0.18);
+}
+
+.page:has(.test-details-panel) .test-editor-actions .btn.danger {
+  background: transparent;
+  border-color: transparent;
+}
+
+.page:has(.test-details-panel) .publish-status,
+.page:has(.test-details-panel) .publish-reminder {
+  margin-left: auto;
+}
+
+.page:has(.test-details-panel) .share-box {
+  margin-top: 30px;
+  padding: 22px;
+  border: 1px solid #bae9df;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 44px rgba(15, 118, 110, 0.1);
+}
+
+.page:has(.test-details-panel) .share-box textarea {
+  border-radius: 14px;
+  background: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.page:has(.test-details-panel) .btn {
+  letter-spacing: 0.005em;
+}
+
+.page:has(.test-details-panel) .btn.primary {
+  background: linear-gradient(180deg, #128579, #0f766e);
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.14);
+}
+
+.page:has(.test-details-panel) .btn.primary:hover {
+  background: linear-gradient(180deg, #0f766e, #115e59);
+}
+
+.page:has(.test-details-panel) .btn.ghost {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: #cbd5e1;
+}
+
+.page:has(.test-details-panel) .linkish {
+  color: #64748b;
+  margin-bottom: 0;
+}
+
+.page:has(.test-details-panel) .linkish:hover {
+  color: #0f766e;
+}
+
+@media (max-width: 760px) {
+  .page:has(.test-details-panel) {
+    padding: 24px 14px 96px;
+  }
+
+  .page:has(.test-details-panel) .test-details-panel,
+  .page:has(.test-details-panel) .question-edit,
+  .page:has(.test-details-panel) .share-box {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .page:has(.test-details-panel) .ai-builder-launch {
+    padding: 14px;
+  }
+
+  .page:has(.test-details-panel) .test-editor-actions {
+    width: 100%;
+    border-radius: 18px;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  .page:has(.test-details-panel) .test-editor-actions .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page:has(.test-details-panel) .question-edit {
+    transition: none;
+  }
+}
