@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { downloadTeacherBackup, restoreTeacherBackupFromFile } from '../lib/backup'
 import {
   clearTeacherSession,
+  deleteTest,
   getSubmissions,
   getTeacher,
   getTests,
@@ -11,14 +12,14 @@ import {
 
 export function TeacherDashboard() {
   const teacher = getTeacher()
-  if (!teacher || !hasTeacherSession()) {
-    return <Navigate to="/teacher" replace />
-  }
-
-  const tests = getTests()
+  const [tests, setTests] = useState(() => getTests())
   const submissions = getSubmissions()
   const backupInputRef = useRef<HTMLInputElement>(null)
   const [backupMsg, setBackupMsg] = useState('')
+
+  if (!teacher || !hasTeacherSession()) {
+    return <Navigate to="/teacher" replace />
+  }
 
   return (
     <div className="page">
@@ -106,7 +107,7 @@ export function TeacherDashboard() {
       ) : (
         <ul className="list">
           {tests.map((t) => (
-            <li key={t.id}>
+            <li key={t.id} className="test-list-item">
               <Link to={`/teacher/tests/${t.id}`}>
                 <strong>{t.title}</strong>
                 <span>
@@ -114,6 +115,20 @@ export function TeacherDashboard() {
                   {t.allowTyping ? '' : ' · typing off'}
                 </span>
               </Link>
+              <button
+                type="button"
+                className="test-delete-button"
+                aria-label={`Delete ${t.title}`}
+                title="Delete test"
+                onClick={() => {
+                  if (!window.confirm(`Delete “${t.title}”? This cannot be undone.`)) return
+                  deleteTest(t.id)
+                  setTests((all) => all.filter((test) => test.id !== t.id))
+                  setBackupMsg(`Deleted “${t.title}”.`)
+                }}
+              >
+                ×
+              </button>
             </li>
           ))}
         </ul>
