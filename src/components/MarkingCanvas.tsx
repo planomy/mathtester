@@ -24,7 +24,7 @@ function dist(a: Point, b: Point) {
 export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const noteInputRef = useRef<HTMLInputElement>(null)
+  const noteInputRef = useRef<HTMLTextAreaElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
   const studentRef = useRef(studentPage)
@@ -174,12 +174,16 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
   }
 
   function commitNote() {
-    const text = noteValue.trim()
+    const text = noteValue.replace(/\s+$/g, '').replace(/^\s+/g, '')
     const at = draftNote
     if (!at || !text) {
       dismissNote()
       return
     }
+    const canvas = canvasRef.current
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const pageW = canvas ? canvas.width / dpr : 800
+    const maxWidth = Math.max(140, Math.min(320, pageW - at.x - 20))
     onChange({
       ...marksRef.current,
       texts: [
@@ -191,6 +195,7 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
           text,
           color: '#b91c1c',
           size: 22,
+          maxWidth,
         },
       ],
     })
@@ -273,15 +278,28 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
       {draftNote && (
         <form
           className="ink-text-form mark-note-form"
-          style={{ left: draftNote.x, top: draftNote.y }}
+          style={{
+            left: draftNote.x,
+            top: draftNote.y,
+            width: Math.min(
+              320,
+              Math.max(
+                180,
+                (canvasRef.current
+                  ? canvasRef.current.getBoundingClientRect().width - draftNote.x - 16
+                  : 280),
+              ),
+            ),
+          }}
           onSubmit={(e) => {
             e.preventDefault()
             commitNote()
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <input
+          <textarea
             ref={noteInputRef}
+            rows={2}
             value={noteValue}
             onChange={(e) => setNoteValue(e.target.value)}
             onBlur={() => {
@@ -295,6 +313,11 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
               if (e.key === 'Escape') {
                 e.preventDefault()
                 dismissNote()
+                return
+              }
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                commitNote()
               }
             }}
             placeholder="Type note…"

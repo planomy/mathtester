@@ -26,6 +26,8 @@ export type TextItem = {
   text: string
   color: string
   size: number
+  /** Soft-wrap width in CSS pixels; also respects explicit newlines */
+  maxWidth?: number
 }
 
 export type PageInk = {

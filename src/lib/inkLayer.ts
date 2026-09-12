@@ -80,11 +80,64 @@ export function paintStrokeOn(ctx: CanvasRenderingContext2D, s: Stroke) {
   ctx.restore()
 }
 
+export function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const paragraphs = text.replace(/\r\n/g, '\n').split('\n')
+  const lines: string[] = []
+
+  for (const para of paragraphs) {
+    if (!para) {
+      lines.push('')
+      continue
+    }
+    const words = para.split(/\s+/).filter(Boolean)
+    let line = ''
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word
+      if (ctx.measureText(next).width <= maxWidth) {
+        line = next
+        continue
+      }
+      if (line) lines.push(line)
+      if (ctx.measureText(word).width <= maxWidth) {
+        line = word
+        continue
+      }
+      let chunk = ''
+      for (const ch of word) {
+        const trial = chunk + ch
+        if (chunk && ctx.measureText(trial).width > maxWidth) {
+          lines.push(chunk)
+          chunk = ch
+        } else {
+          chunk = trial
+        }
+      }
+      line = chunk
+    }
+    if (line) lines.push(line)
+  }
+
+  return lines.length ? lines : ['']
+}
+
 export function paintTextsOn(ctx: CanvasRenderingContext2D, texts: TextItem[]) {
   for (const t of texts) {
     ctx.fillStyle = t.color
     ctx.font = `${t.size}px "Source Sans 3", system-ui, sans-serif`
-    ctx.fillText(t.text, t.x, t.y)
+    const needsWrap = Boolean(t.maxWidth) || t.text.includes('\n')
+    if (!needsWrap) {
+      ctx.fillText(t.text, t.x, t.y)
+      continue
+    }
+    const lines = wrapTextLines(ctx, t.text, t.maxWidth ?? 10_000)
+    const lineHeight = t.size * 1.28
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], t.x, t.y + i * lineHeight)
+    }
   }
 }
 

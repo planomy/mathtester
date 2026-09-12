@@ -23,7 +23,17 @@ function inkExtentY(page: PageInk): number {
     }
   }
   for (const t of page.texts) {
-    maxY = Math.max(maxY, t.y + t.size)
+    const paras = t.text.replace(/\r\n/g, '\n').split('\n')
+    let lineCount = 0
+    if (t.maxWidth && t.maxWidth > 0) {
+      const approxChars = Math.max(8, Math.floor(t.maxWidth / (t.size * 0.52)))
+      for (const para of paras) {
+        lineCount += para ? Math.max(1, Math.ceil(para.length / approxChars)) : 1
+      }
+    } else {
+      lineCount = Math.max(1, paras.length)
+    }
+    maxY = Math.max(maxY, t.y + lineCount * t.size * 1.28)
   }
   return maxY
 }
