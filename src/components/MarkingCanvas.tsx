@@ -1,4 +1,9 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { renderInkLayer } from '../lib/inkLayer'
 import { drawLockedSource, loadLockedImage } from '../lib/lockedSource'
 import { uid } from '../lib/storage'
@@ -19,15 +24,41 @@ function dist(a: Point, b: Point) {
 export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const noteInputRef = useRef<HTMLInputElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
   const studentRef = useRef(studentPage)
   const marksRef = useRef(marks)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
   const bgReady = useRef(0)
+  const ignoreNoteBlur = useRef(false)
+  const [draftNote, setDraftNote] = useState<Point | null>(null)
+  const [noteValue, setNoteValue] = useState('')
 
   studentRef.current = studentPage
   marksRef.current = marks
+
+  useEffect(() => {
+    setDraftNote(null)
+    setNoteValue('')
+  }, [tool])
+
+  useEffect(() => {
+    if (!draftNote) return
+    ignoreNoteBlur.current = true
+    const focusId = window.setTimeout(() => {
+      noteInputRef.current?.focus()
+      noteInputRef.current?.select()
+      ignoreNoteBlur.current = false
+    }, 0)
+    const unlockId = window.setTimeout(() => {
+      ignoreNoteBlur.current = false
+    }, 200)
+    return () => {
+      window.clearTimeout(focusId)
+      window.clearTimeout(unlockId)
+    }
+  }, [draftNote])
 
   useEffect(() => {
     let cancelled = false
@@ -137,13 +168,42 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }
 
+  function dismissNote() {
+    setDraftNote(null)
+    setNoteValue('')
+  }
+
+  function commitNote() {
+    const text = noteValue.trim()
+    const at = draftNote
+    if (!at || !text) {
+      dismissNote()
+      return
+    }
+    onChange({
+      ...marksRef.current,
+      texts: [
+        ...marksRef.current.texts,
+        {
+          id: uid('mark'),
+          x: at.x,
+          y: at.y,
+          text,
+          color: '#b91c1c',
+          size: 22,
+        },
+      ],
+    })
+    dismissNote()
+  }
+
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
     const p = toLocal(e)
     if (tool === 'tick' || tool === 'cross') {
       onChange({
-        ...marks,
+        ...marksRef.current,
         texts: [
-          ...marks.texts,
+          ...marksRef.current.texts,
           {
             id: uid('mark'),
             x: p.x - 12,
@@ -157,22 +217,10 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
       return
     }
     if (tool === 'text') {
-      const note = window.prompt('Comment')
-      if (!note?.trim()) return
-      onChange({
-        ...marks,
-        texts: [
-          ...marks.texts,
-          {
-            id: uid('mark'),
-            x: p.x,
-            y: p.y,
-            text: note.trim(),
-            color: '#b91c1c',
-            size: 22,
-          },
-        ],
-      })
+      // Keep the placing click from stealing focus from the note field.
+      e.preventDefault()
+      setDraftNote(p)
+      setNoteValue('')
       return
     }
 
@@ -206,7 +254,7 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
       paint()
       return
     }
-    onChange({ ...marks, strokes: [...marks.strokes, stroke] })
+    onChange({ ...marksRef.current, strokes: [...marksRef.current.strokes, stroke] })
   }
 
   return (
@@ -216,12 +264,44 @@ export function MarkingCanvas({ studentPage, marks, onChange, tool, lockedSource
       )}
       <canvas
         ref={canvasRef}
-        className="ink-canvas"
+        className={tool === 'text' ? 'ink-canvas is-note' : 'ink-canvas'}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endStroke}
         onPointerCancel={endStroke}
       />
+      {draftNote && (
+        <form
+          className="ink-text-form mark-note-form"
+          style={{ left: draftNote.x, top: draftNote.y }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            commitNote()
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <input
+            ref={noteInputRef}
+            value={noteValue}
+            onChange={(e) => setNoteValue(e.target.value)}
+            onBlur={() => {
+              if (ignoreNoteBlur.current) {
+                noteInputRef.current?.focus()
+                return
+              }
+              commitNote()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                dismissNote()
+              }
+            }}
+            placeholder="Type note…"
+            aria-label="Marking note"
+          />
+        </form>
+      )}
     </div>
   )
 }

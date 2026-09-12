@@ -390,38 +390,36 @@ export function TeacherSubmissions() {
                   lockedSource={lockedSources[pageIndex]}
                 />
 
-                <div className="marking-float-bar" aria-label="Marking tools">
+                <div className="marking-tool-rail" aria-label="Marking tools">
                   <div className="marking-answer-chip" title={answerText}>
                     <span>Answer</span>
                     <strong>{answerText}</strong>
                   </div>
-                  <div className="toolbar marking-float-tools">
-                    <div className="toolbar-group">
-                      {MARK_TOOLS.map(({ id, label, title }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          title={title}
-                          aria-label={title}
-                          className={tool === id ? 'tool active' : 'tool'}
-                          onClick={() => setTool(id)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="toolbar-group">
-                      <button type="button" className="tool" onClick={undoMark}>
-                        Undo
-                      </button>
+                  <div className="marking-rail-tools" role="toolbar" aria-label="Mark tools">
+                    {MARK_TOOLS.map(({ id, label, title }) => (
                       <button
+                        key={id}
                         type="button"
-                        className="tool danger"
-                        onClick={() => setMarks(emptyInk())}
+                        title={title}
+                        aria-label={title}
+                        className={tool === id ? 'marking-rail-btn is-active' : 'marking-rail-btn'}
+                        onClick={() => setTool(id)}
                       >
-                        Clear
+                        {label}
                       </button>
-                    </div>
+                    ))}
+                  </div>
+                  <div className="marking-rail-tools" role="group" aria-label="Edit marks">
+                    <button type="button" className="marking-rail-btn" onClick={undoMark}>
+                      Undo
+                    </button>
+                    <button
+                      type="button"
+                      className="marking-rail-btn is-danger"
+                      onClick={() => setMarks(emptyInk())}
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
               </div>
