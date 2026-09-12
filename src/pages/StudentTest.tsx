@@ -112,15 +112,15 @@ export function StudentTest() {
 
   return (
     <div className="sit">
-      <header className="sit-header">
+      <header className="sit-header sit-bar">
         <div>
-          <p className="eyebrow">{test.title}</p>
+          <p className="sit-eyebrow">{test.title}</p>
           <h1>
             Q{index + 1}
-            <span className="muted"> / {test.questions.length}</span>
+            <span> / {test.questions.length}</span>
           </h1>
         </div>
-        <div className="row gap">
+        <div className="sit-nav">
           <button
             type="button"
             className="btn ghost"
@@ -138,12 +138,12 @@ export function StudentTest() {
             Next
           </button>
           <button type="button" className="btn primary" disabled={busy} onClick={submit}>
-            {busy ? 'Building PDF…' : 'Submit test'}
+            {busy ? 'Building…' : 'Submit'}
           </button>
         </div>
       </header>
 
-      <p className="prompt">{question?.prompt}</p>
+      <p className="prompt sit-prompt">{question?.prompt}</p>
 
       <DrawingToolbar
         tool={tool}
@@ -169,7 +169,7 @@ export function StudentTest() {
       />
 
       {doneMsg && (
-        <div className="submit-done">
+        <div className="submit-done sit-done">
           <p>{doneMsg}</p>
           {importToken && (
             <textarea readOnly rows={3} value={importToken} onFocus={(e) => e.target.select()} />

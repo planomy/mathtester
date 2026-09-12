@@ -1,7 +1,7 @@
 /* TestPro editor visual refresh.
    Scoped to the test editor via :has(.test-details-panel) so the student and marking views stay untouched. */
 
-body:has(.test-details-panel) {
+body:has(.test-details-panel):not(:has(.tdash)) {
   background:
     radial-gradient(900px 520px at 0% 0%, rgba(204, 251, 241, 0.55), transparent 58%),
     radial-gradient(780px 480px at 100% 0%, rgba(219, 234, 254, 0.62), transparent 56%),
@@ -25,18 +25,6 @@ body:has(.test-details-panel) {
   letter-spacing: -0.045em;
   line-height: 0.98;
   margin-bottom: 4px;
-}
-
-.page:has(.test-details-panel) > h1::after {
-  content: 'Create, refine and publish without the clutter.';
-  display: block;
-  margin-top: 10px;
-  font-family: var(--font);
-  font-size: 1rem;
-  line-height: 1.4;
-  letter-spacing: 0;
-  font-weight: 500;
-  color: #64748b;
 }
 
 .page:has(.test-details-panel) .ai-builder-launch {

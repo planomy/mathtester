@@ -73,40 +73,43 @@ export function StudentJoin() {
   }
 
   return (
-    <div className="page narrow">
-      <Link className="back" to="/">
-        ← Home
-      </Link>
-      <h1>Join test</h1>
-      <p className="muted">Enter the code from your teacher, or open their shared link.</p>
+    <div className="sjoin">
+      <div className="sjoin-card">
+        <Link className="sjoin-back" to="/">
+          ← Home
+        </Link>
+        <p className="sjoin-eyebrow">Student</p>
+        <h1>Join test</h1>
 
-      {embedded && (
-        <p className="chip">
-          Linked test: {embedded.test.title} ({embedded.test.code})
-        </p>
-      )}
-
-      <form className="stack" onSubmit={onSubmit}>
-        {!embedded && (
-          <label>
-            Test code
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="e.g. K7M2PQ"
-              required
-            />
-          </label>
+        {embedded && (
+          <p className="sjoin-chip">
+            {embedded.test.title}
+            <span>{embedded.test.code}</span>
+          </p>
         )}
-        <label>
-          Your name
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="btn primary" type="submit">
-          Start
-        </button>
-      </form>
+
+        <form className="sjoin-form" onSubmit={onSubmit}>
+          {!embedded && (
+            <label>
+              Test code
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="Code"
+                required
+              />
+            </label>
+          )}
+          <label>
+            Your name
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="btn primary" type="submit">
+            Start
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

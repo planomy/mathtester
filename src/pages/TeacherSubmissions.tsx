@@ -192,10 +192,10 @@ export function TeacherSubmissions() {
 
   return (
     <div className="marking-page">
-      <header className="marking-top">
+      <header className="marking-top marking-top-bar">
         <div className="marking-top-title">
-          <Link className="back" to="/teacher/dashboard">
-            ← Dashboard
+          <Link className="marking-back" to="/teacher/dashboard">
+            ← Tests
           </Link>
           <h1>Submissions</h1>
         </div>
@@ -237,7 +237,7 @@ export function TeacherSubmissions() {
             className="marking-quiet-action"
             onClick={() => setShowImport((v) => !v)}
           >
-            {showImport ? 'Hide import' : 'Import'}
+            {showImport ? 'Hide' : 'Import'}
           </button>
         </div>
       </header>
@@ -251,12 +251,12 @@ export function TeacherSubmissions() {
       {showImport && (
         <form className="stack import-bar" onSubmit={onImport}>
           <label>
-            Import token
+            Token
             <textarea
               rows={2}
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste token from student submit screen"
+              placeholder="Paste token"
             />
           </label>
           <div className="row gap wrap">
@@ -268,7 +268,7 @@ export function TeacherSubmissions() {
               className="btn ghost"
               onClick={() => submissionFileRef.current?.click()}
             >
-              Import JSON file
+              Import JSON
             </button>
             <input
               ref={submissionFileRef}
@@ -327,7 +327,7 @@ export function TeacherSubmissions() {
 
         <section className="marking-main">
           {!active ? (
-            <p className="empty marking-empty">Select a student to start marking.</p>
+            <p className="empty marking-empty">Select a student.</p>
           ) : (
             <div className="marking">
               <header className="marking-student-bar">
@@ -366,7 +366,7 @@ export function TeacherSubmissions() {
                       flash('Student JSON downloaded.')
                     }}
                   >
-                    Save JSON
+                    JSON
                   </button>
                   <button
                     type="button"
@@ -374,7 +374,7 @@ export function TeacherSubmissions() {
                     disabled={busy}
                     onClick={saveMarkedAndDownload}
                   >
-                    {busy ? 'Building…' : 'Finish PDF'}
+                    {busy ? 'Building…' : 'PDF'}
                   </button>
                 </div>
               </header>

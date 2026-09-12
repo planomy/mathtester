@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { downloadTeacherBackup, restoreTeacherBackupFromFile } from '../lib/backup'
 import {
   clearTeacherSession,
@@ -10,9 +10,62 @@ import {
   hasTeacherSession,
 } from '../lib/storage'
 
+function TestsPanel() {
+  const [tests, setTests] = useState(() => getTests())
+  const [msg, setMsg] = useState('')
+
+  return (
+    <>
+      {msg && <p className="status-ok tdash-status">{msg}</p>}
+      {tests.length === 0 ? (
+        <div className="tdash-empty">
+          <div className="tdash-empty-mark" aria-hidden="true" />
+          <h3>Add your first questions</h3>
+          <p>
+            Start a test, drop in prompts (and locked graphs if you need them), then publish for
+            the class.
+          </p>
+          <Link className="btn primary" to="/teacher/dashboard/new">
+            Create a test
+          </Link>
+        </div>
+      ) : (
+        <ul className="tdash-list">
+          {tests.map((t) => (
+            <li key={t.id} className="tdash-list-item">
+              <Link to={`/teacher/dashboard/tests/${t.id}`}>
+                <strong>{t.title}</strong>
+                <span>
+                  {t.questions.length} Q · {t.published ? `Code ${t.code}` : 'Draft'}
+                  {t.allowTyping ? '' : ' · typing off'}
+                </span>
+              </Link>
+              <button
+                type="button"
+                className="tdash-delete"
+                aria-label={`Delete ${t.title}`}
+                title="Delete test"
+                onClick={() => {
+                  if (!window.confirm(`Delete “${t.title}”? This cannot be undone.`)) return
+                  deleteTest(t.id)
+                  setTests((all) => all.filter((test) => test.id !== t.id))
+                  setMsg(`Deleted “${t.title}”.`)
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
 export function TeacherDashboard() {
   const teacher = getTeacher()
-  const [tests, setTests] = useState(() => getTests())
+  const location = useLocation()
+  const tests = getTests()
   const submissions = getSubmissions()
   const backupInputRef = useRef<HTMLInputElement>(null)
   const [backupMsg, setBackupMsg] = useState('')
@@ -21,21 +74,39 @@ export function TeacherDashboard() {
     return <Navigate to="/teacher" replace />
   }
 
+  const published = tests.filter((t) => t.published).length
+  const editing =
+    location.pathname.includes('/dashboard/new') ||
+    location.pathname.includes('/dashboard/tests/')
+
   return (
-    <div className="page">
-      <header className="row-between">
-        <div>
-          <p className="eyebrow">Teacher</p>
-          <h1>{teacher.name}</h1>
-          <p className="muted">{teacher.email}</p>
+    <div className="tdash">
+      <aside className="tdash-dock" aria-label="Teacher tools">
+        <div className="tdash-identity">
+          <p className="tdash-eyebrow">Teacher</p>
+          <h1 className="tdash-name">{teacher.name}</h1>
+          <p className="tdash-email">{teacher.email}</p>
         </div>
-        <div className="row gap wrap">
-          <Link className="btn ghost" to="/teacher/submissions">
-            Submissions ({submissions.length})
+
+        <nav className="tdash-nav" aria-label="Teacher sections">
+          <Link
+            className={`tdash-nav-item${!location.pathname.includes('/submissions') ? ' is-active' : ''}`}
+            to="/teacher/dashboard"
+            aria-current={!location.pathname.includes('/submissions') ? 'page' : undefined}
+          >
+            <span>Tests</span>
+            <span className="tdash-nav-count">{tests.length}</span>
           </Link>
+          <Link className="tdash-nav-item" to="/teacher/submissions">
+            <span>Submissions</span>
+            <span className="tdash-nav-count">{submissions.length}</span>
+          </Link>
+        </nav>
+
+        <div className="tdash-dock-actions">
           <button
             type="button"
-            className="btn ghost"
+            className="tdash-quiet"
             onClick={() => {
               try {
                 downloadTeacherBackup()
@@ -49,7 +120,7 @@ export function TeacherDashboard() {
           </button>
           <button
             type="button"
-            className="btn ghost"
+            className="tdash-quiet"
             onClick={() => backupInputRef.current?.click()}
           >
             Restore
@@ -77,7 +148,7 @@ export function TeacherDashboard() {
           />
           <button
             type="button"
-            className="btn ghost"
+            className="tdash-quiet tdash-quiet-danger"
             onClick={() => {
               clearTeacherSession()
               window.location.hash = '#/teacher'
@@ -86,53 +157,50 @@ export function TeacherDashboard() {
             Lock
           </button>
         </div>
-      </header>
+      </aside>
 
-      {backupMsg && <p className="status-ok">{backupMsg}</p>}
+      <main className="tdash-main">
+        <header className="tdash-main-head">
+          <div>
+            <p className="tdash-eyebrow">Workspace</p>
+            <h2>Your tests</h2>
+            <p className="tdash-lede">
+              Build questions here, publish a student link, then mark submissions.
+            </p>
+          </div>
+          <Link className="btn primary tdash-new" to="/teacher/dashboard/new">
+            New test
+          </Link>
+        </header>
 
-      <p className="muted">
-        Tests and student submissions live in this browser until you download a backup.
-        Restore that file on another device or after clearing site data.
-      </p>
+        <div className="tdash-stats" aria-label="Overview">
+          <div className="tdash-stat">
+            <strong>{tests.length}</strong>
+            <span>Tests</span>
+          </div>
+          <div className="tdash-stat">
+            <strong>{published}</strong>
+            <span>Published</span>
+          </div>
+          <div className="tdash-stat">
+            <strong>{submissions.length}</strong>
+            <span>Submissions</span>
+          </div>
+        </div>
 
-      <div className="row-between section-head">
-        <h2>Tests</h2>
-        <Link className="btn primary" to="/teacher/tests/new">
-          New test
-        </Link>
-      </div>
+        {backupMsg && <p className="status-ok tdash-status">{backupMsg}</p>}
 
-      {tests.length === 0 ? (
-        <p className="empty">No tests yet. Add questions, publish, and share a student link.</p>
-      ) : (
-        <ul className="list">
-          {tests.map((t) => (
-            <li key={t.id} className="test-list-item">
-              <Link to={`/teacher/tests/${t.id}`}>
-                <strong>{t.title}</strong>
-                <span>
-                  {t.questions.length} Q · {t.published ? `Code ${t.code}` : 'Draft'}
-                  {t.allowTyping ? '' : ' · typing off'}
-                </span>
-              </Link>
-              <button
-                type="button"
-                className="test-delete-button"
-                aria-label={`Delete ${t.title}`}
-                title="Delete test"
-                onClick={() => {
-                  if (!window.confirm(`Delete “${t.title}”? This cannot be undone.`)) return
-                  deleteTest(t.id)
-                  setTests((all) => all.filter((test) => test.id !== t.id))
-                  setBackupMsg(`Deleted “${t.title}”.`)
-                }}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <section
+          className={`tdash-panel${editing ? ' tdash-panel-editing' : ''}`}
+          aria-label={editing ? 'Test editor' : 'Tests'}
+        >
+          <Outlet />
+        </section>
+      </main>
     </div>
   )
+}
+
+export function DashboardTestsPanel() {
+  return <TestsPanel />
 }

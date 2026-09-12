@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   fileToLockedSource,
 } from '../lib/lockedSource'
@@ -110,16 +110,24 @@ function parseAiTest(raw: string) {
   }
 }
 
-export function TeacherTestEditor() {
-  const { testId } = useParams()
+export function TeacherTestEditor({
+  embedded = false,
+}: {
+  embedded?: boolean
+} = {}) {
+  const { testId: paramId } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
+  const testId =
+    paramId ??
+    (location.pathname.includes('/dashboard/new') ? 'new' : undefined)
   const teacher = getTeacher()
   const existing = useMemo(
     () => (testId && testId !== 'new' ? getTests().find((t) => t.id === testId) : null),
     [testId],
   )
 
-  const [title, setTitle] = useState(existing?.title ?? 'Untitled test')
+  const [title, setTitle] = useState(existing?.title ?? 'Test name')
   const [questions, setQuestions] = useState<Question[]>(
     existing?.questions?.length ? existing.questions : [blankQuestion()],
   )
@@ -269,7 +277,7 @@ export function TeacherTestEditor() {
     const now = new Date().toISOString()
     return {
       id: existing?.id ?? uid('test'),
-      title: title.trim() || 'Untitled test',
+      title: title.trim() || 'Test name',
       questions: questions
         .map((q) => ({
           ...q,
@@ -285,6 +293,10 @@ export function TeacherTestEditor() {
     }
   }
 
+  function goDashboard() {
+    navigate('/teacher/dashboard')
+  }
+
   function onSave(e: FormEvent) {
     e.preventDefault()
     const test = buildTest(isPublished)
@@ -293,7 +305,11 @@ export function TeacherTestEditor() {
     setSavedSnapshot(currentSnapshot)
     setSaveStatus('Saved — ready to publish.')
     setPublishReminder('')
-    navigate(`/teacher/tests/${test.id}`, { replace: true })
+    if (embedded) {
+      navigate(`/teacher/dashboard/tests/${test.id}`, { replace: true })
+    } else {
+      navigate(`/teacher/tests/${test.id}`, { replace: true })
+    }
   }
 
   function onPublish() {
@@ -342,16 +358,19 @@ export function TeacherTestEditor() {
   }
 
   return (
-    <div className="page">
-      <Link className="back" to="/teacher/dashboard">
-        ← Dashboard
-      </Link>
-      <h1>{existing ? 'Edit test' : 'New test'}</h1>
+    <div className={embedded ? 'tdash-editor' : 'page'}>
+      {embedded ? null : (
+        <>
+          <Link className="back" to="/teacher/dashboard">
+            ← Dashboard
+          </Link>
+          <h1>{existing ? 'Edit test' : 'New test'}</h1>
+        </>
+      )}
 
       <section className="ai-builder-launch">
         <div>
           <strong>Create with AI</strong>
-          <p className="muted">Build every question and teacher answer in about 30 seconds.</p>
         </div>
         <button
           type="button"
@@ -371,10 +390,9 @@ export function TeacherTestEditor() {
         <section className="ai-builder">
           <div className="ai-builder-head">
             <div>
-              <p className="eyebrow">Fast AI import</p>
-              <h2>Make a complete test in two steps</h2>
+              <p className="eyebrow">AI import</p>
+              <h2>Prompt &amp; paste</h2>
             </div>
-            <p className="muted">Nothing is sent from TestPro. You choose which AI to use.</p>
           </div>
 
           <div className="ai-builder-grid">
@@ -382,8 +400,7 @@ export function TeacherTestEditor() {
               <div className="ai-step-title">
                 <span>1</span>
                 <div>
-                  <h3>Copy your prompt</h3>
-                  <p className="muted">Fill the details. Edit the prompt if you like.</p>
+                  <h3>Prompt</h3>
                 </div>
               </div>
 
@@ -427,7 +444,7 @@ export function TeacherTestEditor() {
               </div>
 
               <label className="ai-prompt-field">
-                Editable AI prompt
+                AI prompt
                 <textarea rows={11} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
               </label>
               <button type="button" className="btn primary" onClick={() => void copyAiPrompt()}>
@@ -439,17 +456,16 @@ export function TeacherTestEditor() {
               <div className="ai-step-title">
                 <span>2</span>
                 <div>
-                  <h3>Paste the AI response</h3>
-                  <p className="muted">TestPro fills the title, questions and answers.</p>
+                  <h3>AI response</h3>
                 </div>
               </div>
               <label className="ai-response-field">
-                AI response
+                Paste response
                 <textarea
                   rows={18}
                   value={aiResponse}
                   onChange={(e) => setAiResponse(e.target.value)}
-                  placeholder={'Paste the JSON response here…\n\n{\n  "title": "…",\n  "questions": […]\n}'}
+                  placeholder="Paste JSON here…"
                 />
               </label>
               <button
@@ -458,7 +474,7 @@ export function TeacherTestEditor() {
                 disabled={!aiResponse.trim()}
                 onClick={importAiResponse}
               >
-                Import complete test
+                Import test
               </button>
             </div>
           </div>
@@ -469,31 +485,29 @@ export function TeacherTestEditor() {
 
       <form className="stack" onSubmit={onSave}>
         <section className="test-details-panel">
-          <div className="test-details-head">
-            <div>
-              <p className="eyebrow">Test details</p>
-              <h2>Name your test</h2>
-            </div>
+          <div className="test-details-head test-details-head-inline">
+            <input
+              className="test-title-input"
+              aria-label="Test name"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onFocus={() => {
+                if (title === 'Test name') setTitle('')
+              }}
+              placeholder="Test name"
+            />
             <span className="test-question-count">
               {questions.length} {questions.length === 1 ? 'question' : 'questions'}
             </span>
           </div>
-          <label className="test-title-field">
-            Test title
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Year 5 Multiplication Test"
-            />
-          </label>
 
           <label className="check">
             <input
               type="checkbox"
-              checked={allowTyping}
-              onChange={(e) => setAllowTyping(e.target.checked)}
+              checked={!allowTyping}
+              onChange={(e) => setAllowTyping(!e.target.checked)}
             />
-            Allow typing tool on student canvas
+            Draw mode only - no typing
           </label>
         </section>
 
@@ -517,7 +531,6 @@ export function TeacherTestEditor() {
             </div>
             <textarea
               rows={3}
-              placeholder="e.g. Show that the sum of angles in a triangle is 180°."
               value={q.prompt}
               onChange={(e) =>
                 setQuestions((all) =>
@@ -526,11 +539,9 @@ export function TeacherTestEditor() {
               }
             />
             <label className="answer-field">
-              Teacher answer / marking guide
-              <span className="muted"> (students never see this)</span>
+              Answer
               <textarea
                 rows={2}
-                placeholder="Expected working or final answer…"
                 value={q.answer ?? ''}
                 onChange={(e) =>
                   setQuestions((all) =>
@@ -541,15 +552,11 @@ export function TeacherTestEditor() {
             </label>
 
             <div className="locked-source-edit">
-              <div className="row-between wrap">
-                <strong>Locked source</strong>
-                <span className="muted">Image or PDF page — kids write over it</span>
-              </div>
               {q.lockedSource ? (
                 <div className="locked-source-preview">
-                  <img src={q.lockedSource.dataUrl} alt={q.lockedSource.name || 'Locked source'} />
+                  <img src={q.lockedSource.dataUrl} alt={q.lockedSource.name || 'Attached source'} />
                   <div className="row gap wrap">
-                    <span className="muted">{q.lockedSource.name || 'Source attached'}</span>
+                    <span className="muted">{q.lockedSource.name || 'Attached'}</span>
                     <button
                       type="button"
                       className="linkish"
@@ -560,7 +567,7 @@ export function TeacherTestEditor() {
                   </div>
                 </div>
               ) : (
-                <div className="row gap wrap">
+                <div className="tdash-source-actions">
                   <input
                     ref={(el) => {
                       fileInputRefs.current[q.id] = el
@@ -578,17 +585,21 @@ export function TeacherTestEditor() {
                     type="button"
                     className="btn ghost"
                     disabled={sourceBusyId === q.id}
+                    title="Upload image or PDF"
+                    aria-label="Upload image or PDF"
                     onClick={() => fileInputRefs.current[q.id]?.click()}
                   >
-                    {sourceBusyId === q.id ? 'Attaching…' : 'Upload image / PDF'}
+                    {sourceBusyId === q.id ? '…' : 'Upload'}
                   </button>
                   <button
                     type="button"
                     className="btn ghost"
                     disabled={sourceBusyId === q.id}
+                    title="Paste image"
+                    aria-label="Paste image"
                     onClick={() => void pasteSource(q.id)}
                   >
-                    Paste image
+                    Paste
                   </button>
                 </div>
               )}
@@ -598,43 +609,55 @@ export function TeacherTestEditor() {
 
         {sourceError && <p className="error">{sourceError}</p>}
 
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            const next = blankQuestion()
-            setQuestions((q) => [...q, next])
-            setFocusQuestionId(next.id)
-          }}
-        >
-          Add question
-        </button>
-
-        <div className="row gap wrap test-editor-actions">
-          <button className={`btn primary${publishReminder ? ' save-reminder' : ''}`} type="submit">
-            Save
-          </button>
-          <button
-            className={`btn ${isSaved ? 'primary publish-ready' : 'ghost publish-waiting'}`}
-            type="button"
-            onClick={onPublish}
-            aria-describedby={publishReminder ? 'publish-reminder' : undefined}
-          >
-            Publish & get student link
-          </button>
-          {existing && (
+        <div className="tdash-q-footer tdash-form-footer">
+          <div className="tdash-add-wrap">
             <button
-              className="btn danger"
               type="button"
+              className="tdash-add-question"
+              aria-label="Add a question"
+              title="Add a question"
               onClick={() => {
-                deleteTest(existing.id)
-                navigate('/teacher/dashboard')
+                const next = blankQuestion()
+                setQuestions((all) => [...all, next])
+                setFocusQuestionId(next.id)
               }}
             >
-              Delete
+              +
             </button>
-          )}
+            <span className="tdash-add-hint" aria-hidden="true">
+              Add a question
+            </span>
+          </div>
+          <div className="tdash-editor-actions-main">
+            <button
+              className={`btn primary${publishReminder ? ' save-reminder' : ''}`}
+              type="submit"
+            >
+              Save
+            </button>
+            <button
+              className={`btn ${isSaved ? 'primary publish-ready' : 'ghost publish-waiting'}`}
+              type="button"
+              onClick={onPublish}
+              aria-describedby={publishReminder ? 'publish-reminder' : undefined}
+            >
+              Publish
+            </button>
+            {existing && (
+              <button
+                className="btn danger"
+                type="button"
+                onClick={() => {
+                  deleteTest(existing.id)
+                  goDashboard()
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
+
         {isSaved && saveStatus && <p className="publish-status">✓ {saveStatus}</p>}
         {publishReminder && (
           <p className="publish-reminder" id="publish-reminder" role="alert">
@@ -647,35 +670,28 @@ export function TeacherTestEditor() {
         <section
           key={`share-${shareRevealCount}`}
           ref={shareBoxRef}
-          className={`share-box${shareRevealCount > 0 ? ' share-box-revealed' : ''}`}
+          className={`share-box share-box-inline${shareRevealCount > 0 ? ' share-box-revealed' : ''}`}
         >
-          <div className="share-box-heading">
-            <span aria-hidden="true">✓</span>
-            <div>
-              <p className="eyebrow">Published</p>
-              <h2>Student link ready</h2>
-            </div>
-          </div>
-          <p className="muted">
-            Share the link or QR it on the board. Join code:{' '}
+          <span className="share-box-check" aria-hidden="true">
+            ✓
+          </span>
+          <span className="share-box-label">Published</span>
+          <span className="share-box-code">
+            Code{' '}
             <strong>{existing?.code ?? shareUrl.match(/join\/([^?]+)/)?.[1]}</strong>
-          </p>
-          {shareUrl && (
-            <>
-              <textarea readOnly rows={4} value={shareUrl} />
-              <button
-                ref={copyLinkRef}
-                type="button"
-                className="btn primary"
-                onClick={copyLink}
-              >
-                {copied ? 'Copied' : 'Copy link'}
-              </button>
-            </>
-          )}
-          {!shareUrl && isPublished && (
+          </span>
+          {shareUrl ? (
+            <button
+              ref={copyLinkRef}
+              type="button"
+              className="btn primary"
+              onClick={copyLink}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+          ) : (
             <button type="button" className="btn ghost" onClick={onPublish}>
-              Refresh share link
+              Refresh link
             </button>
           )}
         </section>
