@@ -85,7 +85,8 @@ export function StudentTest() {
       setLastSubmission(submission)
       downloadSubmissionFile(submission)
 
-      if (teacherEmail) {
+      const sendEmail = Boolean(test.emailOnSubmit) && Boolean(teacherEmail)
+      if (sendEmail) {
         const subject = encodeURIComponent(`TestPro: ${test.title} — ${student.studentName}`)
         const body = encodeURIComponent(
           `Hi ${teacherName || 'teacher'},\n\n` +
@@ -97,7 +98,7 @@ export function StudentTest() {
       }
 
       setDoneMsg(
-        teacherEmail
+        sendEmail
           ? 'PDF + JSON downloaded and email draft opened. Keep the import token or JSON file for your teacher.'
           : 'PDF + JSON downloaded. Give the JSON file or import token to your teacher.',
       )

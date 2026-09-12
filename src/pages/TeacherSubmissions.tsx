@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { MarkingCanvas } from '../components/MarkingCanvas'
 import {
@@ -15,6 +15,7 @@ import {
   getTeacher,
   getTests,
   hasTeacherSession,
+  subscribeSubmissions,
   upsertSubmission,
 } from '../lib/storage'
 import type { LockedSource, MarkTool, PageInk, Submission } from '../types'
@@ -49,6 +50,26 @@ export function TeacherSubmissions() {
   const [showImport, setShowImport] = useState(false)
   const backupInputRef = useRef<HTMLInputElement>(null)
   const submissionFileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    return subscribeSubmissions(() => {
+      setSubs((prev) => {
+        const next = getSubmissions()
+        const prevIds = new Set(prev.map((s) => s.id))
+        const fresh = next.find((s) => !prevIds.has(s.id))
+        if (fresh) {
+          queueMicrotask(() => {
+            setActiveId(fresh.id)
+            setPageIndex(0)
+            setError('')
+            setStatusMsg(`New submission from ${fresh.studentName}.`)
+            window.setTimeout(() => setStatusMsg(''), 4000)
+          })
+        }
+        return next
+      })
+    })
+  }, [])
 
   const active = useMemo(
     () => subs.find((s) => s.id === activeId) ?? null,
@@ -391,9 +412,38 @@ export function TeacherSubmissions() {
                 />
 
                 <div className="marking-tool-rail" aria-label="Marking tools">
-                  <div className="marking-answer-chip" title={answerText}>
+                  <div className="marking-answer-chip">
                     <span>Answer</span>
                     <strong>{answerText}</strong>
+                    {answerText && answerText !== '—' ? (
+                      <div className="marking-answer-tip" role="tooltip">
+                        {answerText}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="marking-rail-tools" role="group" aria-label="Question">
+                    <button
+                      type="button"
+                      className="marking-rail-btn"
+                      title="Previous question"
+                      aria-label="Previous question"
+                      disabled={pageIndex === 0}
+                      onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="marking-rail-btn"
+                      title="Next question"
+                      aria-label="Next question"
+                      disabled={pageIndex >= active.pages.length - 1}
+                      onClick={() =>
+                        setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))
+                      }
+                    >
+                      ↓
+                    </button>
                   </div>
                   <div className="marking-rail-tools" role="toolbar" aria-label="Mark tools">
                     {MARK_TOOLS.map(({ id, label, title }) => (

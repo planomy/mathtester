@@ -4,7 +4,10 @@ import type { Submission, Test } from '../types'
 export type SharedTestPayload = {
   v: 1
   kind: 'test'
-  test: Pick<Test, 'id' | 'title' | 'questions' | 'allowTyping' | 'code' | 'createdAt'>
+  test: Pick<
+    Test,
+    'id' | 'title' | 'questions' | 'allowTyping' | 'emailOnSubmit' | 'code' | 'createdAt'
+  >
   teacherEmail: string
   teacherName: string
 }

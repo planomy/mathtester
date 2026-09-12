@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { downloadTeacherBackup, restoreTeacherBackupFromFile } from '../lib/backup'
 import {
@@ -8,6 +8,7 @@ import {
   getTeacher,
   getTests,
   hasTeacherSession,
+  subscribeSubmissions,
 } from '../lib/storage'
 
 function TestsPanel() {
@@ -65,10 +66,18 @@ function TestsPanel() {
 export function TeacherDashboard() {
   const teacher = getTeacher()
   const location = useLocation()
-  const tests = getTests()
-  const submissions = getSubmissions()
+  const [tests, setTests] = useState(() => getTests())
+  const [submissions, setSubmissions] = useState(() => getSubmissions())
   const backupInputRef = useRef<HTMLInputElement>(null)
   const [backupMsg, setBackupMsg] = useState('')
+
+  useEffect(() => {
+    return subscribeSubmissions(() => setSubmissions(getSubmissions()))
+  }, [])
+
+  useEffect(() => {
+    setTests(getTests())
+  }, [location.pathname])
 
   if (!teacher || !hasTeacherSession()) {
     return <Navigate to="/teacher" replace />

@@ -68,6 +68,49 @@ export function getTestByCode(code: string): Test | undefined {
   return getTests().find((t) => t.code === normalized && t.published)
 }
 
+const SUBMISSIONS_CHANGED = 'mathtester:submissions-changed'
+
+let submissionsBc: BroadcastChannel | null | undefined
+
+function getSubmissionsChannel(): BroadcastChannel | null {
+  if (submissionsBc !== undefined) return submissionsBc
+  try {
+    submissionsBc =
+      typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel('mathtester-submissions')
+        : null
+  } catch {
+    submissionsBc = null
+  }
+  return submissionsBc
+}
+
+function notifySubmissionsChanged() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(SUBMISSIONS_CHANGED))
+  getSubmissionsChannel()?.postMessage({ type: 'submissions' })
+}
+
+/** Live updates when submissions change in this tab, another tab, or via BroadcastChannel. */
+export function subscribeSubmissions(onChange: () => void): () => void {
+  const onLocal = () => onChange()
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === KEYS.submissions) onChange()
+  }
+  const channel = getSubmissionsChannel()
+  const onChannel = () => onChange()
+
+  window.addEventListener(SUBMISSIONS_CHANGED, onLocal)
+  window.addEventListener('storage', onStorage)
+  channel?.addEventListener('message', onChannel)
+
+  return () => {
+    window.removeEventListener(SUBMISSIONS_CHANGED, onLocal)
+    window.removeEventListener('storage', onStorage)
+    channel?.removeEventListener('message', onChannel)
+  }
+}
+
 export function getSubmissions(): Submission[] {
   return read<Submission[]>(KEYS.submissions, [])
 }
@@ -83,6 +126,7 @@ export function addSubmission(sub: Submission) {
   if (i >= 0) all[i] = normalized
   else all.unshift(normalized)
   write(KEYS.submissions, all)
+  notifySubmissionsChanged()
 }
 
 export function upsertSubmission(sub: Submission) {
@@ -91,6 +135,7 @@ export function upsertSubmission(sub: Submission) {
 
 export function writeSubmissions(subs: Submission[]) {
   write(KEYS.submissions, subs)
+  notifySubmissionsChanged()
 }
 
 export function getAttempt(): StudentAttempt | null {

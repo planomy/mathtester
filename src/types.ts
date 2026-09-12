@@ -54,6 +54,8 @@ export type Test = {
   title: string
   questions: Question[]
   allowTyping: boolean
+  /** When true, student Submit opens a mailto draft to the teacher. Off by default. */
+  emailOnSubmit?: boolean
   code: string
   createdAt: string
   updatedAt: string

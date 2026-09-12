@@ -19,8 +19,13 @@ function blankQuestion(): Question {
   return { id: uid('q'), prompt: '', answer: '' }
 }
 
-function editorSnapshot(title: string, questions: Question[], allowTyping: boolean) {
-  return JSON.stringify({ title, questions, allowTyping })
+function editorSnapshot(
+  title: string,
+  questions: Question[],
+  allowTyping: boolean,
+  emailOnSubmit: boolean,
+) {
+  return JSON.stringify({ title, questions, allowTyping, emailOnSubmit })
 }
 
 type AiSettings = {
@@ -132,6 +137,7 @@ export function TeacherTestEditor({
     existing?.questions?.length ? existing.questions : [blankQuestion()],
   )
   const [allowTyping, setAllowTyping] = useState(existing?.allowTyping ?? true)
+  const [emailOnSubmit, setEmailOnSubmit] = useState(existing?.emailOnSubmit ?? false)
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
@@ -150,6 +156,7 @@ export function TeacherTestEditor({
           existing.title,
           existing.questions?.length ? existing.questions : [blankQuestion()],
           existing.allowTyping ?? true,
+          existing.emailOnSubmit ?? false,
         )
       : null,
   )
@@ -161,8 +168,8 @@ export function TeacherTestEditor({
   const shareBoxRef = useRef<HTMLElement | null>(null)
   const copyLinkRef = useRef<HTMLButtonElement | null>(null)
   const currentSnapshot = useMemo(
-    () => editorSnapshot(title, questions, allowTyping),
-    [title, questions, allowTyping],
+    () => editorSnapshot(title, questions, allowTyping, emailOnSubmit),
+    [title, questions, allowTyping, emailOnSubmit],
   )
   const isSaved = savedSnapshot !== null && savedSnapshot === currentSnapshot
 
@@ -286,6 +293,7 @@ export function TeacherTestEditor({
         }))
         .filter((q) => q.prompt.length > 0),
       allowTyping,
+      emailOnSubmit,
       code: code ?? existing?.code ?? makeCode(),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
@@ -338,6 +346,7 @@ export function TeacherTestEditor({
           lockedSource,
         })),
         allowTyping: test.allowTyping,
+        emailOnSubmit: test.emailOnSubmit ?? false,
         code: test.code,
         createdAt: test.createdAt,
       },
@@ -508,6 +517,14 @@ export function TeacherTestEditor({
               onChange={(e) => setAllowTyping(!e.target.checked)}
             />
             Draw mode only - no typing
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={emailOnSubmit}
+              onChange={(e) => setEmailOnSubmit(e.target.checked)}
+            />
+            Student submission email
           </label>
         </section>
 

@@ -559,6 +559,7 @@ body:has(.marking-page) {
 }
 
 .marking-answer-chip {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -573,6 +574,7 @@ body:has(.marking-page) {
   box-shadow: var(--neo-pressed-sm);
   color: var(--neo-accent);
   text-align: center;
+  cursor: default;
 }
 
 .marking-answer-chip span {
@@ -592,6 +594,40 @@ body:has(.marking-page) {
   white-space: nowrap;
   font-size: 0.78rem;
   line-height: 1.15;
+}
+
+.marking-answer-tip {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  z-index: 8;
+  transform: translateY(-50%);
+  width: max-content;
+  max-width: min(280px, 42vw);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 80ms ease, visibility 80ms ease;
+  transition-delay: 0s;
+}
+
+.marking-answer-chip:hover .marking-answer-tip,
+.marking-answer-chip:focus-within .marking-answer-tip {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0.2s;
 }
 
 .marking-rail-tools {
@@ -623,6 +659,11 @@ body:has(.marking-page) {
 
 .marking-rail-btn.is-danger {
   color: #b42318;
+}
+
+.marking-rail-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .marking-rail-btn:hover {
@@ -742,6 +783,14 @@ body:has(.marking-page) {
     max-width: min(42%, 220px);
     padding: 4px 10px;
     gap: 6px;
+  }
+
+  .marking-answer-tip {
+    right: auto;
+    left: 0;
+    top: calc(100% + 8px);
+    transform: none;
+    max-width: min(320px, 80vw);
   }
 
   .marking-rail-tools {
