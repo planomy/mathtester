@@ -76,6 +76,26 @@ export function TeacherSubmissions() {
     [subs, activeId],
   )
 
+  useEffect(() => {
+    if (!active) return
+    const pageCount = active.pages.length
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement | null)?.isContentEditable) return
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setPageIndex((i) => Math.max(0, i - 1))
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setPageIndex((i) => Math.min(pageCount - 1, i + 1))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active])
+
   const answers = useMemo(() => {
     if (!active) return [] as string[]
     const test =
@@ -421,28 +441,26 @@ export function TeacherSubmissions() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="marking-rail-tools" role="group" aria-label="Question">
+                  <div className="marking-rail-tools marking-rail-pager" role="group" aria-label="Question">
                     <button
                       type="button"
                       className="marking-rail-btn"
-                      title="Previous question"
                       aria-label="Previous question"
                       disabled={pageIndex === 0}
                       onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
                     >
-                      ↑
+                      ‹
                     </button>
                     <button
                       type="button"
                       className="marking-rail-btn"
-                      title="Next question"
                       aria-label="Next question"
                       disabled={pageIndex >= active.pages.length - 1}
                       onClick={() =>
                         setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))
                       }
                     >
-                      ↓
+                      ›
                     </button>
                   </div>
                   <div className="marking-rail-tools" role="toolbar" aria-label="Mark tools">
