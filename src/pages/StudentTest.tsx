@@ -15,7 +15,7 @@ export function StudentTest() {
   const attempt = getAttempt()
   const [index, setIndex] = useState(0)
   const [pages, setPages] = useState<PageInk[]>(attempt?.pages ?? [])
-  const [tool, setTool] = useState<Tool>('pen')
+  const [tool, setTool] = useState<Tool>(() => (bundle?.test.allowTyping ? 'text' : 'pen'))
   const [color, setColor] = useState('#0f172a')
   const [width, setWidth] = useState(4)
   const [busy, setBusy] = useState(false)
