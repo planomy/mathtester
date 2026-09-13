@@ -31,6 +31,7 @@ export function InkCanvas({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const textInputRef = useRef<HTMLInputElement>(null)
   const drawing = useRef(false)
   const current = useRef<Stroke | null>(null)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
@@ -90,6 +91,20 @@ export function InkCanvas({
     paint()
   }, [value, draftText, bgReady, lockedSource?.dataUrl])
 
+  useEffect(() => {
+    if (!draftText) return
+    const frame = window.requestAnimationFrame(() => {
+      textInputRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [draftText])
+
+  useEffect(() => {
+    if (tool === 'text' && allowTyping) return
+    setDraftText(null)
+    setTextValue('')
+  }, [tool, allowTyping])
+
   function toLocal(e: ReactPointerEvent<HTMLCanvasElement>): Point {
     const canvas = canvasRef.current!
     const rect = canvas.getBoundingClientRect()
@@ -145,6 +160,8 @@ export function InkCanvas({
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
     if (tool === 'text') {
       if (!allowTyping) return
+      e.preventDefault()
+      e.stopPropagation()
       const p = toLocal(e)
       setDraftText(p)
       setTextValue('')
@@ -190,10 +207,14 @@ export function InkCanvas({
     onChange({ ...value, strokes: [...value.strokes, stroke] })
   }
 
+  function cancelText() {
+    setDraftText(null)
+    setTextValue('')
+  }
+
   function commitText() {
     if (!draftText || !textValue.trim()) {
-      setDraftText(null)
-      setTextValue('')
+      cancelText()
       return
     }
     const item: TextItem = {
@@ -205,9 +226,10 @@ export function InkCanvas({
       size: 22,
     }
     onChange({ ...value, texts: [...value.texts, item] })
-    setDraftText(null)
-    setTextValue('')
+    cancelText()
   }
+
+  const textMode = tool === 'text' && allowTyping
 
   return (
     <div className="ink-wrap" ref={wrapRef}>
@@ -218,7 +240,7 @@ export function InkCanvas({
       )}
       <canvas
         ref={canvasRef}
-        className="ink-canvas"
+        className={textMode ? 'ink-canvas is-note' : 'ink-canvas'}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endStroke}
@@ -232,12 +254,19 @@ export function InkCanvas({
             e.preventDefault()
             commitText()
           }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <input
-            autoFocus
+            ref={textInputRef}
             value={textValue}
             onChange={(e) => setTextValue(e.target.value)}
             onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelText()
+              }
+            }}
             placeholder="Type…"
           />
         </form>
