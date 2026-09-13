@@ -284,17 +284,17 @@ body:has(.marking-page) {
   border-radius: 14px;
   gap: 4px;
   background: var(--neo);
-  border: none;
+  border: 1px solid #94a3b8;
 }
 
 .sidebar-list .list-btn:hover {
   background: var(--neo);
-  border: none;
+  border-color: #64748b;
 }
 
 .sidebar-list .list-btn.active {
   background: var(--neo);
-  border: none;
+  border-color: var(--teal);
   box-shadow: var(--neo-pressed-sm);
   color: var(--neo-accent);
 }
