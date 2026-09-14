@@ -107,6 +107,40 @@
   overflow-wrap: anywhere;
 }
 
+.sidebar-submission-row {
+  position: relative;
+}
+
+.sidebar-submission-row .list-btn {
+  width: 100%;
+  padding-right: 38px;
+}
+
+.sidebar-remove-submission {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sidebar-remove-submission:hover,
+.sidebar-remove-submission:focus-visible {
+  background: #fef2f2;
+  color: #b91c1c;
+  outline: none;
+}
+
 @media (max-width: 720px) {
   .marking-objective-comparison {
     grid-template-columns: 1fr;
