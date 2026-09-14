@@ -13,7 +13,7 @@ import {
   uid,
   upsertTest,
 } from '../lib/storage'
-import type { Question, Test } from '../types'
+import type { LockedSource, Question, Test } from '../types'
 
 function blankQuestion(): Question {
   return { id: uid('q'), prompt: '', answer: '' }
@@ -24,8 +24,9 @@ function editorSnapshot(
   questions: Question[],
   allowTyping: boolean,
   emailOnSubmit: boolean,
+  markingGuide?: LockedSource,
 ) {
-  return JSON.stringify({ title, questions, allowTyping, emailOnSubmit })
+  return JSON.stringify({ title, questions, allowTyping, emailOnSubmit, markingGuide })
 }
 
 type AiSettings = {
@@ -138,10 +139,12 @@ export function TeacherTestEditor({
   )
   const [allowTyping, setAllowTyping] = useState(existing?.allowTyping ?? true)
   const [emailOnSubmit, setEmailOnSubmit] = useState(existing?.emailOnSubmit ?? false)
+  const [markingGuide, setMarkingGuide] = useState<LockedSource | undefined>(existing?.markingGuide)
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
   const [sourceBusyId, setSourceBusyId] = useState<string | null>(null)
+  const [markingGuideBusy, setMarkingGuideBusy] = useState(false)
   const [sourceError, setSourceError] = useState('')
   const [showAiBuilder, setShowAiBuilder] = useState(false)
   const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings)
@@ -157,6 +160,7 @@ export function TeacherTestEditor({
           existing.questions?.length ? existing.questions : [blankQuestion()],
           existing.allowTyping ?? true,
           existing.emailOnSubmit ?? false,
+          existing.markingGuide,
         )
       : null,
   )
@@ -165,11 +169,12 @@ export function TeacherTestEditor({
   const [publishReminder, setPublishReminder] = useState('')
   const [shareRevealCount, setShareRevealCount] = useState(0)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const markingGuideInputRef = useRef<HTMLInputElement | null>(null)
   const shareBoxRef = useRef<HTMLElement | null>(null)
   const copyLinkRef = useRef<HTMLButtonElement | null>(null)
   const currentSnapshot = useMemo(
-    () => editorSnapshot(title, questions, allowTyping, emailOnSubmit),
-    [title, questions, allowTyping, emailOnSubmit],
+    () => editorSnapshot(title, questions, allowTyping, emailOnSubmit, markingGuide),
+    [title, questions, allowTyping, emailOnSubmit, markingGuide],
   )
   const isSaved = savedSnapshot !== null && savedSnapshot === currentSnapshot
 
@@ -258,6 +263,40 @@ export function TeacherTestEditor({
     )
   }
 
+  async function attachMarkingGuide(file: File) {
+    setSourceError('')
+    setMarkingGuideBusy(true)
+    try {
+      const guide = await fileToLockedSource(file)
+      setMarkingGuide(guide)
+    } catch (err) {
+      setSourceError(err instanceof Error ? err.message : 'Could not attach marking guide.')
+    } finally {
+      setMarkingGuideBusy(false)
+    }
+  }
+
+  async function pasteMarkingGuide() {
+    setSourceError('')
+    setMarkingGuideBusy(true)
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith('image/'))
+        if (!type) continue
+        const blob = await item.getType(type)
+        const file = new File([blob], 'pasted-rubric.png', { type: blob.type })
+        setMarkingGuide(await fileToLockedSource(file))
+        return
+      }
+      setSourceError('No image on clipboard. Copy a rubric screenshot first, or upload a PDF/image.')
+    } catch {
+      setSourceError('Clipboard paste blocked — use Upload PDF/image instead.')
+    } finally {
+      setMarkingGuideBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!focusQuestionId) return
     const el = document.getElementById(`question-${focusQuestionId}`)
@@ -294,6 +333,7 @@ export function TeacherTestEditor({
         .filter((q) => q.prompt.length > 0),
       allowTyping,
       emailOnSubmit,
+      markingGuide,
       code: code ?? existing?.code ?? makeCode(),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
@@ -339,7 +379,7 @@ export function TeacherTestEditor({
       test: {
         id: test.id,
         title: test.title,
-        // Strip teacher answers — students must never receive them
+        // Strip teacher answers and the marking guide — students must never receive them
         questions: test.questions.map(({ id, prompt, lockedSource }) => ({
           id,
           prompt,
@@ -625,6 +665,57 @@ export function TeacherTestEditor({
         ))}
 
         {sourceError && <p className="error">{sourceError}</p>}
+
+        <section className="marking-guide-edit">
+          <div className="row-between marking-guide-head">
+            <div>
+              <strong>Marking guide / rubric</strong>
+              <p className="muted">Teacher only · appears after the final question while marking</p>
+            </div>
+            {markingGuide && (
+              <button type="button" className="linkish" onClick={() => setMarkingGuide(undefined)}>
+                Remove
+              </button>
+            )}
+          </div>
+
+          {markingGuide ? (
+            <div className="marking-guide-preview">
+              <img src={markingGuide.dataUrl} alt={markingGuide.name || 'Marking guide'} />
+              <span className="muted">{markingGuide.name || 'Marking guide attached'}</span>
+            </div>
+          ) : (
+            <div className="tdash-source-actions">
+              <input
+                ref={markingGuideInputRef}
+                type="file"
+                accept="image/*,application/pdf,.pdf"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) void attachMarkingGuide(file)
+                }}
+              />
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={markingGuideBusy}
+                onClick={() => markingGuideInputRef.current?.click()}
+              >
+                {markingGuideBusy ? '…' : 'Upload PDF / image'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={markingGuideBusy}
+                onClick={() => void pasteMarkingGuide()}
+              >
+                Paste screenshot
+              </button>
+            </div>
+          )}
+        </section>
 
         <div className="tdash-q-footer tdash-form-footer">
           <div className="tdash-add-wrap">
