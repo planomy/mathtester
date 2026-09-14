@@ -26,6 +26,10 @@
   box-shadow: var(--neo-raised);
 }
 
+.sit-compact-header-objective {
+  min-height: 66px;
+}
+
 .sit-question-copy {
   min-width: 0;
 }
@@ -205,6 +209,129 @@
   opacity: 0.9;
 }
 
+/* Objective questions use the main workspace instead of squeezing options into the header. */
+.sit-objective-stage {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 2vw, 28px);
+}
+
+.sit-objective-card {
+  width: min(980px, 100%);
+  display: grid;
+  gap: 20px;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.1);
+}
+
+.sit-objective-kind {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: var(--teal-dark);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sit-objective-card h1 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.sit-objective-source {
+  display: grid;
+  place-items: center;
+  max-height: 38vh;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.sit-objective-source img {
+  display: block;
+  max-width: 100%;
+  max-height: 34vh;
+  object-fit: contain;
+}
+
+.sit-objective-options {
+  display: grid;
+  gap: 12px;
+}
+
+.sit-objective-option {
+  width: 100%;
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 2px solid #dbe3ea;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  font-weight: 650;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, background 140ms ease;
+}
+
+.sit-objective-option:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.sit-objective-option.is-selected {
+  border-color: var(--teal);
+  background: #f0fdfa;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.sit-option-label {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.sit-objective-option.is-selected .sit-option-label {
+  background: var(--teal);
+  color: #fff;
+}
+
+.sit-objective-options.is-true-false {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.sit-objective-options.is-true-false .sit-objective-option {
+  min-height: 96px;
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+}
+
 @media (max-width: 900px) {
   .sit.sit-v2 {
     height: auto;
@@ -266,6 +393,17 @@
   .sit-stage > .ink-wrap {
     min-height: 520px;
   }
+
+  .sit-objective-stage {
+    place-items: start stretch;
+    overflow: visible;
+    padding: 4px 0 16px;
+  }
+
+  .sit-objective-card {
+    width: 100%;
+    border-radius: 20px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -284,6 +422,31 @@
   .student-text-editor {
     max-width: calc(100% - 12px);
   }
+
+  .sit-objective-card {
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .sit-objective-options.is-true-false {
+    grid-template-columns: 1fr;
+  }
+
+  .sit-objective-option {
+    grid-template-columns: 38px minmax(0, 1fr);
+    padding: 10px 12px;
+  }
+
+  .sit-option-label {
+    width: 34px;
+    height: 34px;
+  }
 }
 
-/* Build marker: student workspace v2 */
+@media (prefers-reduced-motion: reduce) {
+  .sit-objective-option {
+    transition: none;
+  }
+}
+
+/* Build marker: student workspace v3 objective questions */
