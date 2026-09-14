@@ -76,9 +76,19 @@ export function TeacherSubmissions() {
     [subs, activeId],
   )
 
+  const activeTest = useMemo(() => {
+    if (!active) return null
+    const tests = getTests()
+    return tests.find((t) => t.id === active.testId) || tests.find((t) => t.code === active.testCode) || null
+  }, [active])
+
+  const markingGuide = activeTest?.markingGuide
+  const totalPages = active ? active.pages.length + (markingGuide ? 1 : 0) : 0
+  const isRubricPage = Boolean(active && markingGuide && pageIndex === active.pages.length)
+
   useEffect(() => {
     if (!active) return
-    const pageCount = active.pages.length
+    const pageCount = active.pages.length + (markingGuide ? 1 : 0)
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -94,24 +104,18 @@ export function TeacherSubmissions() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active])
+  }, [active, markingGuide])
 
   const answers = useMemo(() => {
     if (!active) return [] as string[]
-    const test =
-      getTests().find((t) => t.id === active.testId) ||
-      getTests().find((t) => t.code === active.testCode)
-    return active.questionPrompts.map((_, i) => test?.questions[i]?.answer?.trim() || '')
-  }, [active])
+    return active.questionPrompts.map((_, i) => activeTest?.questions[i]?.answer?.trim() || '')
+  }, [active, activeTest])
 
   const lockedSources = useMemo(() => {
     if (!active) return [] as (LockedSource | null | undefined)[]
     if (active.questionSources?.length) return active.questionSources
-    const test =
-      getTests().find((t) => t.id === active.testId) ||
-      getTests().find((t) => t.code === active.testCode)
-    return active.questionPrompts.map((_, i) => test?.questions[i]?.lockedSource)
-  }, [active])
+    return active.questionPrompts.map((_, i) => activeTest?.questions[i]?.lockedSource)
+  }, [active, activeTest])
 
   function refresh() {
     setSubs(getSubmissions())
@@ -181,13 +185,32 @@ export function TeacherSubmissions() {
 
   function setMarks(marks: PageInk) {
     if (!active) return
+    if (isRubricPage) {
+      updateActive({ ...active, rubricMarks: marks })
+      return
+    }
     const markPages = ensureMarkPages(active).map((p, i) => (i === pageIndex ? marks : p))
     updateActive({ ...active, markPages })
   }
 
+  const markPages = active ? ensureMarkPages(active) : []
+  const currentMarks = isRubricPage
+    ? active?.rubricMarks ?? emptyInk()
+    : markPages[pageIndex] ?? emptyInk()
+  const currentStudent = isRubricPage ? emptyInk() : active?.pages[pageIndex] ?? emptyInk()
+  const currentSource = isRubricPage ? markingGuide : lockedSources[pageIndex]
+  const currentPrompt = isRubricPage
+    ? 'Marking guide / rubric'
+    : active?.questionPrompts[pageIndex] ?? ''
+  const answerText = isRubricPage
+    ? 'Mark directly on the rubric'
+    : active
+      ? answers[pageIndex] || 'No answer in editor'
+      : ''
+
   function undoMark() {
     if (!active) return
-    const marks = ensureMarkPages(active)[pageIndex]
+    const marks = currentMarks
     if (marks.texts.length) {
       setMarks({ ...marks, texts: marks.texts.slice(0, -1) })
     } else if (marks.strokes.length) {
@@ -202,6 +225,7 @@ export function TeacherSubmissions() {
       const marked: Submission = {
         ...active,
         markPages: ensureMarkPages(active),
+        rubricMarks: markingGuide ? active.rubricMarks ?? emptyInk() : active.rubricMarks,
         status: 'marked',
         markedAt: new Date().toISOString(),
       }
@@ -215,6 +239,9 @@ export function TeacherSubmissions() {
         markPages: marked.markPages,
         marked: true,
         sources: lockedSources,
+        rubric: markingGuide
+          ? { source: markingGuide, marks: marked.rubricMarks }
+          : undefined,
       })
       const safeName = marked.studentName.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_')
       downloadBlob(blob, `marked-${safeName}-${marked.testCode}.pdf`)
@@ -223,13 +250,6 @@ export function TeacherSubmissions() {
       setBusy(false)
     }
   }
-
-  const markPages = active ? ensureMarkPages(active) : []
-  const currentMarks = markPages[pageIndex] ?? emptyInk()
-  const currentStudent = active?.pages[pageIndex] ?? emptyInk()
-  const answerText = active
-    ? answers[pageIndex] || 'No answer in editor'
-    : ''
 
   return (
     <div className="marking-page">
@@ -375,7 +395,7 @@ export function TeacherSubmissions() {
                 <div className="marking-student-title">
                   <h2>{active.studentName}</h2>
                   <p className="muted">
-                    {active.testTitle} · Q{pageIndex + 1}/{active.pages.length}
+                    {active.testTitle} · {isRubricPage ? 'Rubric' : `Q${pageIndex + 1}/${active.pages.length}`}
                   </p>
                 </div>
                 <div className="marking-student-actions">
@@ -391,9 +411,9 @@ export function TeacherSubmissions() {
                     <button
                       type="button"
                       className="btn ghost marking-pager-btn"
-                      disabled={pageIndex >= active.pages.length - 1}
+                      disabled={pageIndex >= totalPages - 1}
                       onClick={() =>
-                        setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))
+                        setPageIndex((i) => Math.min(totalPages - 1, i + 1))
                       }
                     >
                       Next
@@ -420,7 +440,7 @@ export function TeacherSubmissions() {
                 </div>
               </header>
 
-              <p className="prompt marking-prompt">{active.questionPrompts[pageIndex]}</p>
+              <p className="prompt marking-prompt">{currentPrompt}</p>
 
               <div className="marking-stage">
                 <MarkingCanvas
@@ -428,12 +448,12 @@ export function TeacherSubmissions() {
                   marks={currentMarks}
                   onChange={setMarks}
                   tool={tool}
-                  lockedSource={lockedSources[pageIndex]}
+                  lockedSource={currentSource}
                 />
 
                 <div className="marking-tool-rail" aria-label="Marking tools">
                   <div className="marking-answer-chip">
-                    <span>Answer</span>
+                    <span>{isRubricPage ? 'Rubric' : 'Answer'}</span>
                     <strong>{answerText}</strong>
                     {answerText && answerText !== '—' ? (
                       <div className="marking-answer-tip" role="tooltip">
@@ -455,9 +475,9 @@ export function TeacherSubmissions() {
                       type="button"
                       className="marking-rail-btn"
                       aria-label="Next question"
-                      disabled={pageIndex >= active.pages.length - 1}
+                      disabled={pageIndex >= totalPages - 1}
                       onClick={() =>
-                        setPageIndex((i) => Math.min(active.pages.length - 1, i + 1))
+                        setPageIndex((i) => Math.min(totalPages - 1, i + 1))
                       }
                     >
                       ›
