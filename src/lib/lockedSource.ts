@@ -4,6 +4,7 @@ export type { LockedSource }
 
 const MAX_EDGE = 1100
 const JPEG_QUALITY = 0.72
+export const SOURCE_WORKSPACE_RATIO = 0.7
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -112,6 +113,51 @@ export function drawLockedSource(
   ctx.fillRect(x, y, w, h)
   ctx.drawImage(img as CanvasImageSource, dx, dy, dw, dh)
   ctx.restore()
+}
+
+/**
+ * Source questions keep one shared coordinate space, but reserve the bottom 30%
+ * as a clear response area. This keeps student ink, teacher marking and PDFs aligned.
+ */
+export function drawLockedSourceWorkspace(
+  ctx: CanvasRenderingContext2D,
+  img: CanvasImageSource,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const sourceH = Math.floor(h * SOURCE_WORKSPACE_RATIO)
+  const responseY = y + sourceH
+  const responseH = Math.max(1, h - sourceH)
+
+  drawLockedSource(ctx, img, x, y, w, sourceH)
+
+  ctx.save()
+  ctx.fillStyle = '#fbfaf7'
+  ctx.fillRect(x, responseY, w, responseH)
+  ctx.strokeStyle = '#94a3b8'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(x, responseY)
+  ctx.lineTo(x + w, responseY)
+  ctx.stroke()
+
+  ctx.fillStyle = '#64748b'
+  ctx.font = '700 12px "Source Sans 3", system-ui, sans-serif'
+  ctx.fillText('YOUR RESPONSE', x + 16, responseY + 22)
+
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)'
+  ctx.lineWidth = 1
+  for (let lineY = responseY + 42; lineY < y + h; lineY += 34) {
+    ctx.beginPath()
+    ctx.moveTo(x + 12, lineY)
+    ctx.lineTo(x + w - 12, lineY)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  return { sourceH, responseY, responseH }
 }
 
 export function loadLockedImage(dataUrl: string): Promise<HTMLImageElement> {
