@@ -1,8 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import {
-  fileToLockedSource,
-} from '../lib/lockedSource'
+import { fileToLockedSource } from '../lib/lockedSource'
 import { absoluteJoinUrl, encodePayload, type SharedTestPayload } from '../lib/share'
 import {
   deleteTest,
@@ -13,10 +11,12 @@ import {
   uid,
   upsertTest,
 } from '../lib/storage'
-import type { LockedSource, Question, Test } from '../types'
+import type { LockedSource, Question, QuestionType, Test } from '../types'
+
+const DEFAULT_OPTIONS = ['', '', '', '']
 
 function blankQuestion(): Question {
-  return { id: uid('q'), prompt: '', answer: '' }
+  return { id: uid('q'), prompt: '', type: 'written', answer: '' }
 }
 
 function editorSnapshot(
@@ -34,6 +34,7 @@ type AiSettings = {
   topic: string
   questionCount: string
   difficulty: string
+  questionMix: string
 }
 
 const defaultAiSettings: AiSettings = {
@@ -41,6 +42,18 @@ const defaultAiSettings: AiSettings = {
   topic: '',
   questionCount: '10',
   difficulty: 'Moderate',
+  questionMix: 'Mixed',
+}
+
+function mixInstruction(mix: string): string {
+  if (mix === 'Written only') return 'Use type "written" for every question.'
+  if (mix === 'Mostly multiple choice') {
+    return 'Make most questions type "multipleChoice", with some "trueFalse" and "written" questions.'
+  }
+  if (mix === 'Mostly written') {
+    return 'Make most questions type "written", with some "multipleChoice" and "trueFalse" questions.'
+  }
+  return 'Use a useful mix of "written", "multipleChoice", and "trueFalse" questions.'
 }
 
 function makeAiPrompt(settings: AiSettings) {
@@ -52,8 +65,15 @@ function makeAiPrompt(settings: AiSettings) {
   return `Create a ${questionCount}-question test for Australian Year ${yearLevel} students about ${topic}.
 
 Difficulty: ${difficulty}
+Question mix: ${settings.questionMix}
+${mixInstruction(settings.questionMix)}
 
-Make every question clear and self-contained. Include an accurate teacher answer or concise marking guide for every question. If a question is multiple choice, put all answer options inside the question prompt.
+Make every question clear and self-contained. Include an accurate teacher answer or concise marking guide for every question.
+
+Use only these question types:
+- "written": a written/drawn response. Put the marking guide in "answer".
+- "multipleChoice": put each choice in the "options" array and put the exact text of the correct option in "answer". Use 4 options unless there is a strong reason not to.
+- "trueFalse": do not include an options array. Put exactly "True" or "False" in "answer".
 
 Return only valid JSON using exactly this structure:
 {
@@ -61,13 +81,25 @@ Return only valid JSON using exactly this structure:
   "allowTyping": true,
   "questions": [
     {
-      "prompt": "Question 1",
-      "answer": "Teacher answer or marking guide"
+      "type": "multipleChoice",
+      "prompt": "Which is a renewable energy source?",
+      "options": ["Coal", "Solar", "Oil", "Gas"],
+      "answer": "Solar"
+    },
+    {
+      "type": "trueFalse",
+      "prompt": "Solar energy is renewable.",
+      "answer": "True"
+    },
+    {
+      "type": "written",
+      "prompt": "Explain one benefit of renewable energy.",
+      "answer": "Any accurate explanation of a valid benefit."
     }
   ]
 }
 
-Do not include explanations, introductory text or Markdown code fences.`
+Do not put multiple-choice options inside the prompt. Do not include explanations, introductory text or Markdown code fences.`
 }
 
 function asText(value: unknown): string {
@@ -75,6 +107,13 @@ function asText(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (Array.isArray(value)) return value.map(asText).filter(Boolean).join('\n')
   return ''
+}
+
+function normalizeQuestionType(value: unknown): QuestionType {
+  const raw = asText(value).toLowerCase().replace(/[\s_-]+/g, '')
+  if (raw === 'multiplechoice' || raw === 'mcq' || raw === 'choice') return 'multipleChoice'
+  if (raw === 'truefalse' || raw === 'tf' || raw === 'boolean') return 'trueFalse'
+  return 'written'
 }
 
 function parseAiTest(raw: string) {
@@ -100,10 +139,38 @@ function parseAiTest(raw: string) {
       const question = item as Record<string, unknown>
       const prompt = asText(question.prompt ?? question.question ?? question.text)
       if (!prompt) return null
-      const answer = asText(
+
+      const type = normalizeQuestionType(question.type ?? question.questionType)
+      let answer = asText(
         question.answer ?? question.markingGuide ?? question.marking_guide ?? question.expectedAnswer,
       )
-      return { id: uid('q'), prompt, answer }
+
+      if (type === 'multipleChoice') {
+        const options = Array.isArray(question.options)
+          ? question.options.map(asText).filter(Boolean)
+          : []
+        if (options.length < 2) return null
+        const letterMatch = answer.match(/^([A-Z])(?:[.)])?$/i)
+        if (letterMatch) {
+          const optionIndex = letterMatch[1].toUpperCase().charCodeAt(0) - 65
+          if (options[optionIndex]) answer = options[optionIndex]
+        }
+        return {
+          id: uid('q'),
+          type,
+          prompt,
+          options: [...options, ...DEFAULT_OPTIONS].slice(0, Math.max(4, options.length)),
+          answer,
+        }
+      }
+
+      if (type === 'trueFalse') {
+        const normalized = answer.toLowerCase()
+        answer = normalized.startsWith('f') ? 'False' : 'True'
+        return { id: uid('q'), type, prompt, answer }
+      }
+
+      return { id: uid('q'), type: 'written', prompt, answer }
     })
     .filter((question): question is Question => question !== null)
 
@@ -116,6 +183,54 @@ function parseAiTest(raw: string) {
   }
 }
 
+function cleanQuestion(q: Question): Question {
+  const type: QuestionType = q.type ?? 'written'
+  if (type === 'multipleChoice') {
+    const options = (q.options ?? DEFAULT_OPTIONS).map((option) => option.trim())
+    return {
+      ...q,
+      type,
+      prompt: q.prompt.trim(),
+      options,
+      answer: (q.answer ?? '').trim(),
+    }
+  }
+  if (type === 'trueFalse') {
+    return {
+      ...q,
+      type,
+      prompt: q.prompt.trim(),
+      options: undefined,
+      answer: q.answer === 'False' ? 'False' : 'True',
+    }
+  }
+  return {
+    ...q,
+    type: 'written',
+    prompt: q.prompt.trim(),
+    options: undefined,
+    answer: (q.answer ?? '').trim(),
+  }
+}
+
+function validationIssue(questions: Question[]): string | null {
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]
+    const type = q.type ?? 'written'
+    if (type === 'multipleChoice') {
+      const options = (q.options ?? []).map((option) => option.trim()).filter(Boolean)
+      if (options.length < 2) return `Q${i + 1}: add at least two multiple-choice options.`
+      if (!q.answer?.trim() || !options.includes(q.answer.trim())) {
+        return `Q${i + 1}: choose the correct multiple-choice answer.`
+      }
+    }
+    if (type === 'trueFalse' && q.answer !== 'True' && q.answer !== 'False') {
+      return `Q${i + 1}: choose True or False as the correct answer.`
+    }
+  }
+  return null
+}
+
 export function TeacherTestEditor({
   embedded = false,
 }: {
@@ -124,9 +239,7 @@ export function TeacherTestEditor({
   const { testId: paramId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const testId =
-    paramId ??
-    (location.pathname.includes('/dashboard/new') ? 'new' : undefined)
+  const testId = paramId ?? (location.pathname.includes('/dashboard/new') ? 'new' : undefined)
   const teacher = getTeacher()
   const existing = useMemo(
     () => (testId && testId !== 'new' ? getTests().find((t) => t.id === testId) : null),
@@ -184,6 +297,42 @@ export function TeacherTestEditor({
     setAiPrompt(makeAiPrompt(next))
   }
 
+  function updateQuestion(questionId: string, update: Partial<Question>) {
+    setQuestions((all) => all.map((q) => (q.id === questionId ? { ...q, ...update } : q)))
+  }
+
+  function changeQuestionType(questionId: string, type: QuestionType) {
+    setQuestions((all) =>
+      all.map((q) => {
+        if (q.id !== questionId) return q
+        if (type === 'multipleChoice') {
+          return { ...q, type, options: q.options?.length ? q.options : DEFAULT_OPTIONS.slice(), answer: '' }
+        }
+        if (type === 'trueFalse') {
+          return { ...q, type, options: undefined, answer: 'True' }
+        }
+        return { ...q, type: 'written', options: undefined, answer: '' }
+      }),
+    )
+  }
+
+  function updateOption(questionId: string, optionIndex: number, value: string) {
+    setQuestions((all) =>
+      all.map((q) => {
+        if (q.id !== questionId) return q
+        const options = (q.options?.length ? q.options : DEFAULT_OPTIONS).slice()
+        while (options.length < 4) options.push('')
+        const oldValue = options[optionIndex] ?? ''
+        options[optionIndex] = value
+        return {
+          ...q,
+          options,
+          answer: q.answer === oldValue && oldValue ? value : q.answer,
+        }
+      }),
+    )
+  }
+
   async function copyAiPrompt() {
     setAiError('')
     try {
@@ -206,7 +355,7 @@ export function TeacherTestEditor({
       setAiResponse('')
       setShowAiBuilder(false)
       setAiStatus(
-        `${imported.questions.length} questions imported with answers. Review them, then save and publish.`,
+        `${imported.questions.length} questions imported with types and answers. Review them, then save and publish.`,
       )
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -219,9 +368,7 @@ export function TeacherTestEditor({
     setSourceBusyId(questionId)
     try {
       const lockedSource = await fileToLockedSource(file)
-      setQuestions((all) =>
-        all.map((x) => (x.id === questionId ? { ...x, lockedSource } : x)),
-      )
+      updateQuestion(questionId, { lockedSource })
     } catch (err) {
       setSourceError(err instanceof Error ? err.message : 'Could not attach source.')
     } finally {
@@ -239,10 +386,7 @@ export function TeacherTestEditor({
         if (!type) continue
         const blob = await item.getType(type)
         const file = new File([blob], 'pasted-image.png', { type: blob.type })
-        const lockedSource = await fileToLockedSource(file)
-        setQuestions((all) =>
-          all.map((x) => (x.id === questionId ? { ...x, lockedSource } : x)),
-        )
+        updateQuestion(questionId, { lockedSource: await fileToLockedSource(file) })
         return
       }
       setSourceError('No image on clipboard. Copy a screenshot first, or upload a file.')
@@ -255,9 +399,9 @@ export function TeacherTestEditor({
 
   function clearSource(questionId: string) {
     setQuestions((all) =>
-      all.map((x) => {
-        if (x.id !== questionId) return x
-        const { lockedSource: _, ...rest } = x
+      all.map((q) => {
+        if (q.id !== questionId) return q
+        const { lockedSource: _, ...rest } = q
         return rest
       }),
     )
@@ -267,8 +411,7 @@ export function TeacherTestEditor({
     setSourceError('')
     setMarkingGuideBusy(true)
     try {
-      const guide = await fileToLockedSource(file)
-      setMarkingGuide(guide)
+      setMarkingGuide(await fileToLockedSource(file))
     } catch (err) {
       setSourceError(err instanceof Error ? err.message : 'Could not attach marking guide.')
     } finally {
@@ -324,13 +467,7 @@ export function TeacherTestEditor({
     return {
       id: existing?.id ?? uid('test'),
       title: title.trim() || 'Test name',
-      questions: questions
-        .map((q) => ({
-          ...q,
-          prompt: q.prompt.trim(),
-          answer: (q.answer ?? '').trim(),
-        }))
-        .filter((q) => q.prompt.length > 0),
+      questions: questions.map(cleanQuestion).filter((q) => q.prompt.length > 0),
       allowTyping,
       emailOnSubmit,
       markingGuide,
@@ -347,8 +484,14 @@ export function TeacherTestEditor({
 
   function onSave(e: FormEvent) {
     e.preventDefault()
+    setSourceError('')
     const test = buildTest(isPublished)
     if (test.questions.length === 0) return
+    const issue = validationIssue(test.questions)
+    if (issue) {
+      setSourceError(issue)
+      return
+    }
     upsertTest(test)
     setSavedSnapshot(currentSnapshot)
     setSaveStatus('Saved — ready to publish.')
@@ -367,8 +510,14 @@ export function TeacherTestEditor({
       return
     }
 
+    setSourceError('')
     const test = buildTest(true, existing?.code ?? makeCode())
     if (test.questions.length === 0) return
+    const issue = validationIssue(test.questions)
+    if (issue) {
+      setSourceError(issue)
+      return
+    }
     upsertTest(test)
     setIsPublished(true)
     setPublishReminder('')
@@ -379,10 +528,12 @@ export function TeacherTestEditor({
       test: {
         id: test.id,
         title: test.title,
-        // Strip teacher answers and the marking guide — students must never receive them
-        questions: test.questions.map(({ id, prompt, lockedSource }) => ({
+        // Strip teacher answers and marking guide. Students only receive what they need to sit the test.
+        questions: test.questions.map(({ id, prompt, type, options, lockedSource }) => ({
           id,
           prompt,
+          type,
+          options,
           lockedSource,
         })),
         allowTyping: test.allowTyping,
@@ -448,9 +599,7 @@ export function TeacherTestEditor({
             <div className="ai-step">
               <div className="ai-step-title">
                 <span>1</span>
-                <div>
-                  <h3>Prompt</h3>
-                </div>
+                <div><h3>Prompt</h3></div>
               </div>
 
               <div className="ai-quick-fields">
@@ -490,11 +639,23 @@ export function TeacherTestEditor({
                     <option>Mixed</option>
                   </select>
                 </label>
+                <label>
+                  Question mix
+                  <select
+                    value={aiSettings.questionMix}
+                    onChange={(e) => updateAiSetting('questionMix', e.target.value)}
+                  >
+                    <option>Mixed</option>
+                    <option>Written only</option>
+                    <option>Mostly multiple choice</option>
+                    <option>Mostly written</option>
+                  </select>
+                </label>
               </div>
 
               <label className="ai-prompt-field">
                 AI prompt
-                <textarea rows={11} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
+                <textarea rows={15} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
               </label>
               <button type="button" className="btn primary" onClick={() => void copyAiPrompt()}>
                 {aiCopied ? '✓ Prompt copied' : 'Copy prompt'}
@@ -504,9 +665,7 @@ export function TeacherTestEditor({
             <div className="ai-step">
               <div className="ai-step-title">
                 <span>2</span>
-                <div>
-                  <h3>AI response</h3>
-                </div>
+                <div><h3>AI response</h3></div>
               </div>
               <label className="ai-response-field">
                 Paste response
@@ -572,97 +731,164 @@ export function TeacherTestEditor({
           <h2>Questions</h2>
         </div>
 
-        {questions.map((q, i) => (
-          <div key={q.id} className="question-edit" id={`question-${q.id}`}>
-            <div className="row-between">
-              <strong>Q{i + 1}</strong>
-              {questions.length > 1 && (
-                <button
-                  type="button"
-                  className="linkish"
-                  onClick={() => setQuestions((all) => all.filter((x) => x.id !== q.id))}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-            <textarea
-              rows={3}
-              value={q.prompt}
-              onChange={(e) =>
-                setQuestions((all) =>
-                  all.map((x) => (x.id === q.id ? { ...x, prompt: e.target.value } : x)),
-                )
-              }
-            />
-            <label className="answer-field">
-              Answer
-              <textarea
-                rows={2}
-                value={q.answer ?? ''}
-                onChange={(e) =>
-                  setQuestions((all) =>
-                    all.map((x) => (x.id === q.id ? { ...x, answer: e.target.value } : x)),
-                  )
-                }
-              />
-            </label>
-
-            <div className="locked-source-edit">
-              {q.lockedSource ? (
-                <div className="locked-source-preview">
-                  <img src={q.lockedSource.dataUrl} alt={q.lockedSource.name || 'Attached source'} />
-                  <div className="row gap wrap">
-                    <span className="muted">{q.lockedSource.name || 'Attached'}</span>
+        {questions.map((q, i) => {
+          const type: QuestionType = q.type ?? 'written'
+          const options = q.options?.length ? q.options : DEFAULT_OPTIONS
+          return (
+            <div key={q.id} className="question-edit" id={`question-${q.id}`}>
+              <div className="row-between question-card-head">
+                <strong>Q{i + 1}</strong>
+                <div className="question-head-actions">
+                  <select
+                    className="question-type-select"
+                    aria-label={`Question ${i + 1} type`}
+                    value={type}
+                    onChange={(e) => changeQuestionType(q.id, e.target.value as QuestionType)}
+                  >
+                    <option value="written">Written / Draw</option>
+                    <option value="multipleChoice">Multiple choice</option>
+                    <option value="trueFalse">True / False</option>
+                  </select>
+                  {questions.length > 1 && (
                     <button
                       type="button"
                       className="linkish"
-                      onClick={() => clearSource(q.id)}
+                      onClick={() => setQuestions((all) => all.filter((x) => x.id !== q.id))}
                     >
                       Remove
                     </button>
+                  )}
+                </div>
+              </div>
+
+              <textarea
+                rows={3}
+                value={q.prompt}
+                placeholder="Question prompt"
+                onChange={(e) => updateQuestion(q.id, { prompt: e.target.value })}
+              />
+
+              {type === 'written' && (
+                <label className="answer-field">
+                  Answer / marking guide
+                  <textarea
+                    rows={2}
+                    value={q.answer ?? ''}
+                    onChange={(e) => updateQuestion(q.id, { answer: e.target.value })}
+                  />
+                </label>
+              )}
+
+              {type === 'multipleChoice' && (
+                <div className="objective-question-editor">
+                  <div className="objective-editor-title">
+                    <strong>Answer choices</strong>
+                    <span className="muted">Select the correct answer</span>
+                  </div>
+                  <div className="mcq-option-editor">
+                    {Array.from({ length: Math.max(4, options.length) }).map((_, optionIndex) => {
+                      const option = options[optionIndex] ?? ''
+                      const label = String.fromCharCode(65 + optionIndex)
+                      return (
+                        <label className="mcq-option-row" key={`${q.id}-option-${optionIndex}`}>
+                          <input
+                            type="radio"
+                            name={`correct-${q.id}`}
+                            checked={Boolean(option) && q.answer === option}
+                            disabled={!option.trim()}
+                            onChange={() => updateQuestion(q.id, { answer: option })}
+                            aria-label={`Mark option ${label} correct`}
+                          />
+                          <span className="mcq-option-label">{label}</span>
+                          <input
+                            type="text"
+                            value={option}
+                            placeholder={`Option ${label}`}
+                            onChange={(e) => updateOption(q.id, optionIndex, e.target.value)}
+                          />
+                        </label>
+                      )
+                    })}
                   </div>
                 </div>
-              ) : (
-                <div className="tdash-source-actions">
-                  <input
-                    ref={(el) => {
-                      fileInputRefs.current[q.id] = el
-                    }}
-                    type="file"
-                    accept="image/*,application/pdf,.pdf"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      e.target.value = ''
-                      if (file) void attachSource(q.id, file)
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    disabled={sourceBusyId === q.id}
-                    title="Upload image or PDF"
-                    aria-label="Upload image or PDF"
-                    onClick={() => fileInputRefs.current[q.id]?.click()}
-                  >
-                    {sourceBusyId === q.id ? '…' : 'Upload'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    disabled={sourceBusyId === q.id}
-                    title="Paste image"
-                    aria-label="Paste image"
-                    onClick={() => void pasteSource(q.id)}
-                  >
-                    Paste
-                  </button>
-                </div>
               )}
+
+              {type === 'trueFalse' && (
+                <fieldset className="objective-question-editor tf-editor">
+                  <legend>Correct answer</legend>
+                  <label className={q.answer === 'True' ? 'tf-choice is-selected' : 'tf-choice'}>
+                    <input
+                      type="radio"
+                      name={`tf-${q.id}`}
+                      checked={q.answer === 'True'}
+                      onChange={() => updateQuestion(q.id, { answer: 'True' })}
+                    />
+                    True
+                  </label>
+                  <label className={q.answer === 'False' ? 'tf-choice is-selected' : 'tf-choice'}>
+                    <input
+                      type="radio"
+                      name={`tf-${q.id}`}
+                      checked={q.answer === 'False'}
+                      onChange={() => updateQuestion(q.id, { answer: 'False' })}
+                    />
+                    False
+                  </label>
+                </fieldset>
+              )}
+
+              <div className="locked-source-edit">
+                {q.lockedSource ? (
+                  <div className="locked-source-preview">
+                    <img src={q.lockedSource.dataUrl} alt={q.lockedSource.name || 'Attached source'} />
+                    <div className="row gap wrap">
+                      <span className="muted">{q.lockedSource.name || 'Attached'}</span>
+                      <button type="button" className="linkish" onClick={() => clearSource(q.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="tdash-source-actions">
+                    <input
+                      ref={(el) => {
+                        fileInputRefs.current[q.id] = el
+                      }}
+                      type="file"
+                      accept="image/*,application/pdf,.pdf"
+                      hidden
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        if (file) void attachSource(q.id, file)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={sourceBusyId === q.id}
+                      title="Upload image or PDF"
+                      aria-label="Upload image or PDF"
+                      onClick={() => fileInputRefs.current[q.id]?.click()}
+                    >
+                      {sourceBusyId === q.id ? '…' : 'Upload'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      disabled={sourceBusyId === q.id}
+                      title="Paste image"
+                      aria-label="Paste image"
+                      onClick={() => void pasteSource(q.id)}
+                    >
+                      Paste
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {sourceError && <p className="error">{sourceError}</p>}
 
@@ -732,15 +958,10 @@ export function TeacherTestEditor({
             >
               +
             </button>
-            <span className="tdash-add-hint" aria-hidden="true">
-              Add a question
-            </span>
+            <span className="tdash-add-hint" aria-hidden="true">Add a question</span>
           </div>
           <div className="tdash-editor-actions-main">
-            <button
-              className={`btn primary${publishReminder ? ' save-reminder' : ''}`}
-              type="submit"
-            >
+            <button className={`btn primary${publishReminder ? ' save-reminder' : ''}`} type="submit">
               Save
             </button>
             <button
@@ -780,21 +1001,13 @@ export function TeacherTestEditor({
           ref={shareBoxRef}
           className={`share-box share-box-inline${shareRevealCount > 0 ? ' share-box-revealed' : ''}`}
         >
-          <span className="share-box-check" aria-hidden="true">
-            ✓
-          </span>
+          <span className="share-box-check" aria-hidden="true">✓</span>
           <span className="share-box-label">Published</span>
           <span className="share-box-code">
-            Code{' '}
-            <strong>{existing?.code ?? shareUrl.match(/join\/([^?]+)/)?.[1]}</strong>
+            Code <strong>{existing?.code ?? shareUrl.match(/join\/([^?]+)/)?.[1]}</strong>
           </span>
           {shareUrl ? (
-            <button
-              ref={copyLinkRef}
-              type="button"
-              className="btn primary"
-              onClick={copyLink}
-            >
+            <button ref={copyLinkRef} type="button" className="btn primary" onClick={copyLink}>
               {copied ? 'Copied' : 'Copy link'}
             </button>
           ) : (
