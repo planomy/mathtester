@@ -45,6 +45,7 @@ export function TeacherSubmissions() {
   }
 
   const [subs, setSubs] = useState(() => getSubmissions())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
@@ -71,6 +72,10 @@ export function TeacherSubmissions() {
             window.setTimeout(() => setStatusMsg(''), 4000)
           })
         }
+        setSelectedIds((selected) => {
+          const valid = new Set(next.map((s) => s.id))
+          return new Set([...selected].filter((id) => valid.has(id)))
+        })
         return next
       })
     })
@@ -169,11 +174,50 @@ export function TeacherSubmissions() {
     const next = getSubmissions().filter((s) => s.id !== submission.id)
     writeSubmissions(next)
     setSubs(next)
+    setSelectedIds((selected) => {
+      const nextSelected = new Set(selected)
+      nextSelected.delete(submission.id)
+      return nextSelected
+    })
     if (activeId === submission.id) {
       setActiveId(null)
       setPageIndex(0)
     }
     flash(`Removed ${submission.studentName}'s submission.`)
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((selected) => {
+      const next = new Set(selected)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((selected) =>
+      selected.size === subs.length ? new Set() : new Set(subs.map((s) => s.id)),
+    )
+  }
+
+  function removeSelectedSubmissions() {
+    const count = selectedIds.size
+    if (count === 0) return
+    const ok = window.confirm(
+      `Remove ${count} selected submission${count === 1 ? '' : 's'}? This cannot be undone.`,
+    )
+    if (!ok) return
+
+    const next = getSubmissions().filter((s) => !selectedIds.has(s.id))
+    writeSubmissions(next)
+    setSubs(next)
+    if (activeId && selectedIds.has(activeId)) {
+      setActiveId(null)
+      setPageIndex(0)
+    }
+    setSelectedIds(new Set())
+    flash(`Removed ${count} submission${count === 1 ? '' : 's'}.`)
   }
 
   function onImport(e: FormEvent) {
@@ -380,37 +424,61 @@ export function TeacherSubmissions() {
           {subs.length === 0 ? (
             <p className="empty compact">No submissions yet.</p>
           ) : (
-            <ul className="list sidebar-list">
-              {subs.map((s) => (
-                <li key={s.id} className="sidebar-submission-row">
-                  <button
-                    type="button"
-                    className={s.id === activeId ? 'list-btn active' : 'list-btn'}
-                    onClick={() => {
-                      setActiveId(s.id)
-                      setPageIndex(0)
-                    }}
-                  >
-                    <span className="sidebar-name">{s.studentName}</span>
-                    <span className="sidebar-meta">
-                      <span className={s.status === 'marked' ? 'sidebar-chip marked' : 'sidebar-chip received'}>
-                        {s.status === 'marked' ? 'Marked' : 'Received'}
+            <>
+              <div className="sidebar-bulk-actions">
+                <button type="button" className="sidebar-bulk-select" onClick={toggleSelectAll}>
+                  {selectedIds.size === subs.length ? 'Clear' : 'Select all'}
+                </button>
+                <span>{selectedIds.size ? `${selectedIds.size} selected` : 'Select submissions'}</span>
+                <button
+                  type="button"
+                  className="sidebar-bulk-delete"
+                  disabled={selectedIds.size === 0}
+                  onClick={removeSelectedSubmissions}
+                >
+                  Delete selected
+                </button>
+              </div>
+              <ul className="list sidebar-list">
+                {subs.map((s) => (
+                  <li key={s.id} className="sidebar-submission-row">
+                    <label className="sidebar-select-submission" title={`Select ${s.studentName}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelected(s.id)}
+                        aria-label={`Select ${s.studentName}'s submission`}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={s.id === activeId ? 'list-btn active' : 'list-btn'}
+                      onClick={() => {
+                        setActiveId(s.id)
+                        setPageIndex(0)
+                      }}
+                    >
+                      <span className="sidebar-name">{s.studentName}</span>
+                      <span className="sidebar-meta">
+                        <span className={s.status === 'marked' ? 'sidebar-chip marked' : 'sidebar-chip received'}>
+                          {s.status === 'marked' ? 'Marked' : 'Received'}
+                        </span>
+                        <span>{s.testCode}</span>
                       </span>
-                      <span>{s.testCode}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="sidebar-remove-submission"
-                    title={`Remove ${s.studentName}'s submission`}
-                    aria-label={`Remove ${s.studentName}'s submission`}
-                    onClick={() => removeSubmission(s)}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                    <button
+                      type="button"
+                      className="sidebar-remove-submission"
+                      title={`Remove ${s.studentName}'s submission`}
+                      aria-label={`Remove ${s.studentName}'s submission`}
+                      onClick={() => removeSubmission(s)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </aside>
 
