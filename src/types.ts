@@ -56,6 +56,8 @@ export type Test = {
   title: string
   questions: Question[]
   allowTyping: boolean
+  /** Teacher-only rubric/marking guide shown after the final question while marking. */
+  markingGuide?: LockedSource
   /** When true, student Submit opens a mailto draft to the teacher. Off by default. */
   emailOnSubmit?: boolean
   code: string
@@ -83,6 +85,8 @@ export type Submission = {
   questionSources?: (LockedSource | null)[]
   /** Teacher annotations over student working */
   markPages?: PageInk[]
+  /** Teacher annotations placed on the attached rubric/marking guide. */
+  rubricMarks?: PageInk
   status?: 'received' | 'marked'
   markedAt?: string
 }
