@@ -78,7 +78,6 @@ export function StudentTest() {
         questionSources: sources,
       }
 
-      // Local inbox if teacher opens on same browser; always create import token
       addSubmission(submission)
       const token = encodePayload({ v: 1, kind: 'submission', submission })
       setImportToken(token)
@@ -112,16 +111,16 @@ export function StudentTest() {
   }
 
   return (
-    <div className="sit">
-      <header className="sit-header sit-bar">
-        <div>
-          <p className="sit-eyebrow">{test.title}</p>
-          <h1>
-            Q{index + 1}
-            <span> / {test.questions.length}</span>
-          </h1>
+    <div className="sit sit-v2">
+      <header className="sit-compact-header">
+        <div className="sit-question-copy">
+          <div className="sit-meta-line">
+            <span className="sit-eyebrow">{test.title}</span>
+            <span className="sit-counter">Q{index + 1} / {test.questions.length}</span>
+          </div>
+          <h1 className="sit-question-text">{question?.prompt}</h1>
         </div>
-        <div className="sit-nav">
+        <nav className="sit-nav sit-nav-compact" aria-label="Question navigation">
           <button
             type="button"
             className="btn ghost"
@@ -141,33 +140,35 @@ export function StudentTest() {
           <button type="button" className="btn primary" disabled={busy} onClick={submit}>
             {busy ? 'Building…' : 'Submit'}
           </button>
-        </div>
+        </nav>
       </header>
 
-      <p className="prompt sit-prompt">{question?.prompt}</p>
+      <main className="sit-stage">
+        <aside className="sit-tool-rail" aria-label="Student tools">
+          <DrawingToolbar
+            tool={tool}
+            color={color}
+            width={width}
+            allowTyping={test.allowTyping}
+            canUndo={page.strokes.length > 0 || page.texts.length > 0}
+            onTool={setTool}
+            onColor={setColor}
+            onWidth={setWidth}
+            onUndo={undo}
+            onClear={() => updatePage({ strokes: [], texts: [] })}
+          />
+        </aside>
 
-      <DrawingToolbar
-        tool={tool}
-        color={color}
-        width={width}
-        allowTyping={test.allowTyping}
-        canUndo={page.strokes.length > 0 || page.texts.length > 0}
-        onTool={setTool}
-        onColor={setColor}
-        onWidth={setWidth}
-        onUndo={undo}
-        onClear={() => updatePage({ strokes: [], texts: [] })}
-      />
-
-      <InkCanvas
-        value={page}
-        onChange={updatePage}
-        allowTyping={test.allowTyping}
-        tool={tool}
-        color={color}
-        width={width}
-        lockedSource={question?.lockedSource}
-      />
+        <InkCanvas
+          value={page}
+          onChange={updatePage}
+          allowTyping={test.allowTyping}
+          tool={tool}
+          color={color}
+          width={width}
+          lockedSource={question?.lockedSource}
+        />
+      </main>
 
       {doneMsg && (
         <div className="submit-done sit-done">
