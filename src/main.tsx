@@ -5,6 +5,7 @@ import './index.css'
 import './testpro-makeover.css'
 import './student-test.css'
 import './editor-question-shading.css'
+import './objective-marking.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
