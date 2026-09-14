@@ -67,6 +67,7 @@ export function StudentJoin() {
       testCode: test.code,
       studentName: name.trim(),
       pages: test.questions.map(() => emptyPage()),
+      objectiveResponses: test.questions.map(() => null),
       startedAt: new Date().toISOString(),
     })
     navigate(`/sit/${test.code}`)
