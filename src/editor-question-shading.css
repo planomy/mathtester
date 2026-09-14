@@ -1,0 +1,50 @@
+/* Stronger visual separation for teacher question cards in the test editor. */
+
+.page:has(.test-details-panel) .question-edit {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.72);
+  border-left: 4px solid rgba(15, 118, 110, 0.72);
+  background: linear-gradient(145deg, rgba(240, 253, 250, 0.78), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.075);
+}
+
+.page:has(.test-details-panel) .question-edit:nth-of-type(even) {
+  border-left-color: rgba(59, 130, 246, 0.48);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.72), rgba(248, 250, 252, 0.98));
+}
+
+.page:has(.test-details-panel) .question-edit + .question-edit {
+  margin-top: 8px;
+}
+
+.page:has(.test-details-panel) .question-edit > .row-between:first-child {
+  margin: -20px -22px 4px;
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.page:has(.test-details-panel) .question-edit > .row-between:first-child strong {
+  background: #dff7f2;
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.12);
+}
+
+.page:has(.test-details-panel) .question-edit:nth-of-type(even) > .row-between:first-child strong {
+  background: #e6f0ff;
+  color: #24589a;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.13);
+}
+
+.page:has(.test-details-panel) .question-edit:focus-within {
+  border-color: rgba(15, 118, 110, 0.7);
+  border-left-color: #0f766e;
+  box-shadow: 0 16px 38px rgba(15, 118, 110, 0.14);
+}
+
+@media (max-width: 760px) {
+  .page:has(.test-details-panel) .question-edit > .row-between:first-child {
+    margin: -16px -16px 4px;
+    padding: 10px 13px 9px;
+  }
+}
