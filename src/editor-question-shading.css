@@ -43,6 +43,131 @@
   box-shadow: 0 12px 28px rgba(15, 118, 110, 0.1);
 }
 
+.question-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+:is(.page:has(.test-details-panel), .tdash-editor) .question-type-select {
+  width: auto;
+  min-width: 142px;
+  min-height: 34px;
+  padding: 0.36rem 2rem 0.36rem 0.7rem;
+  border-radius: 999px;
+  background-color: #f8fafc;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.objective-question-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid #dbe3ea;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.objective-editor-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.objective-editor-title strong {
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.objective-editor-title .muted {
+  font-size: 0.78rem;
+}
+
+.mcq-option-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.mcq-option-row {
+  display: grid;
+  grid-template-columns: 22px 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.mcq-option-row > input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #0f766e;
+}
+
+.mcq-option-label {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+:is(.page:has(.test-details-panel), .tdash-editor) .mcq-option-row > input[type='text'] {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.tf-editor {
+  grid-template-columns: auto minmax(120px, 180px) minmax(120px, 180px);
+  align-items: center;
+  border: 1px solid #dbe3ea;
+}
+
+.tf-editor legend {
+  padding: 0 6px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tf-choice {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tf-choice.is-selected {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  color: #115e59;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+}
+
+.tf-choice input {
+  accent-color: #0f766e;
+}
+
 :is(.page:has(.test-details-panel), .tdash-editor) .marking-guide-edit {
   margin-top: 18px;
   padding: 18px 20px;
@@ -98,6 +223,30 @@
   :is(.page:has(.test-details-panel), .tdash-editor) .question-edit > .row-between:first-child {
     margin: -16px -16px 4px;
     padding: 10px 13px 9px;
+  }
+
+  .question-card-head {
+    align-items: flex-start;
+  }
+
+  .question-head-actions {
+    gap: 6px;
+  }
+
+  :is(.page:has(.test-details-panel), .tdash-editor) .question-type-select {
+    min-width: 128px;
+  }
+
+  .mcq-option-row {
+    grid-template-columns: 22px 28px minmax(0, 1fr);
+  }
+
+  .tf-editor {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tf-editor legend {
+    grid-column: 1 / -1;
   }
 
   :is(.page:has(.test-details-panel), .tdash-editor) .marking-guide-edit {
