@@ -17,6 +17,7 @@ import {
   hasTeacherSession,
   subscribeSubmissions,
   upsertSubmission,
+  writeSubmissions,
 } from '../lib/storage'
 import type { LockedSource, MarkTool, PageInk, QuestionType, Submission } from '../types'
 
@@ -157,6 +158,22 @@ export function TeacherSubmissions() {
     setStatusMsg(msg)
     setError('')
     window.setTimeout(() => setStatusMsg(''), 4000)
+  }
+
+  function removeSubmission(submission: Submission) {
+    const ok = window.confirm(
+      `Remove ${submission.studentName}'s submission for “${submission.testTitle}”? This cannot be undone.`,
+    )
+    if (!ok) return
+
+    const next = getSubmissions().filter((s) => s.id !== submission.id)
+    writeSubmissions(next)
+    setSubs(next)
+    if (activeId === submission.id) {
+      setActiveId(null)
+      setPageIndex(0)
+    }
+    flash(`Removed ${submission.studentName}'s submission.`)
   }
 
   function onImport(e: FormEvent) {
@@ -365,7 +382,7 @@ export function TeacherSubmissions() {
           ) : (
             <ul className="list sidebar-list">
               {subs.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="sidebar-submission-row">
                   <button
                     type="button"
                     className={s.id === activeId ? 'list-btn active' : 'list-btn'}
@@ -381,6 +398,15 @@ export function TeacherSubmissions() {
                       </span>
                       <span>{s.testCode}</span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sidebar-remove-submission"
+                    title={`Remove ${s.studentName}'s submission`}
+                    aria-label={`Remove ${s.studentName}'s submission`}
+                    onClick={() => removeSubmission(s)}
+                  >
+                    ×
                   </button>
                 </li>
               ))}
