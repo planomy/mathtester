@@ -8,6 +8,7 @@ export type Tool =
   | 'text'
 
 export type MarkTool = 'tick' | 'cross' | 'pen' | 'text' | 'eraser'
+export type QuestionType = 'written' | 'multipleChoice' | 'trueFalse'
 
 export type Point = { x: number; y: number }
 
@@ -45,6 +46,10 @@ export type LockedSource = {
 export type Question = {
   id: string
   prompt: string
+  /** Missing on legacy tests; treat as written. */
+  type?: QuestionType
+  /** Multiple-choice options. The teacher answer should exactly match one option. */
+  options?: string[]
   /** Teacher-only answer / marking guide — never sent to students */
   answer?: string
   /** Graph, source extract, worksheet — locked under student writing */
@@ -81,6 +86,10 @@ export type Submission = {
   submittedAt: string
   pages: PageInk[]
   questionPrompts: string[]
+  /** Question types at submission time; absent on legacy submissions. */
+  questionTypes?: QuestionType[]
+  /** Selected answer for MCQ / T-F; null for written questions or unanswered objective questions. */
+  objectiveResponses?: (string | null)[]
   /** Locked backgrounds per question (for marking / PDF) */
   questionSources?: (LockedSource | null)[]
   /** Teacher annotations over student working */
@@ -96,5 +105,7 @@ export type StudentAttempt = {
   testCode: string
   studentName: string
   pages: PageInk[]
+  /** Selected answers for objective questions. */
+  objectiveResponses?: (string | null)[]
   startedAt: string
 }
