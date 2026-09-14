@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { renderInkLayer } from './inkLayer'
 import { drawLockedSource, loadLockedImage } from './lockedSource'
-import type { LockedSource, PageInk, Point, Stroke, TextItem } from '../types'
+import type { LockedSource, PageInk, Point, QuestionType, Stroke, TextItem } from '../types'
 
 const PAGE_W = 1200
 const HEADER_H = 120
@@ -53,6 +53,10 @@ function promptBlockHeight(prompt: string): number {
   return Math.min(160, lines * 58)
 }
 
+function normalizeAnswer(value?: string | null) {
+  return (value ?? '').trim().toLocaleLowerCase()
+}
+
 export async function renderPageToCanvas(
   page: PageInk,
   prompt: string,
@@ -65,6 +69,9 @@ export async function renderPageToCanvas(
     marked?: boolean
     lockedSource?: LockedSource | null
     pageLabel?: string
+    questionType?: QuestionType
+    objectiveResponse?: string | null
+    correctAnswer?: string
   },
 ): Promise<HTMLCanvasElement> {
   const promptH = promptBlockHeight(prompt)
@@ -72,6 +79,7 @@ export async function renderPageToCanvas(
   const workH = workHeightFor(page, meta.marks, Boolean(meta.lockedSource))
   const pageH = workTop + workH + FOOTER_PAD
   const workW = PAGE_W - 60
+  const isObjective = meta.questionType && meta.questionType !== 'written'
 
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W
@@ -119,6 +127,9 @@ export async function renderPageToCanvas(
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(30, workTop, workW, workH)
     }
+  } else if (isObjective) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(30, workTop, workW, workH)
   } else {
     ctx.fillStyle = '#f7f4ee'
     ctx.fillRect(30, workTop, workW, workH)
@@ -129,6 +140,40 @@ export async function renderPageToCanvas(
       ctx.moveTo(30, y)
       ctx.lineTo(PAGE_W - 30, y)
       ctx.stroke()
+    }
+  }
+
+  if (isObjective) {
+    const panelH = meta.lockedSource ? 170 : workH
+    const panelY = meta.lockedSource ? workTop + workH - panelH : workTop
+    ctx.fillStyle = meta.lockedSource ? 'rgba(255,255,255,0.94)' : '#ffffff'
+    ctx.fillRect(30, panelY, workW, panelH)
+    ctx.strokeStyle = '#cbd5e1'
+    ctx.strokeRect(30, panelY, workW, panelH)
+
+    ctx.fillStyle = '#64748b'
+    ctx.font = '700 22px system-ui, sans-serif'
+    ctx.fillText(meta.questionType === 'multipleChoice' ? 'MULTIPLE CHOICE' : 'TRUE / FALSE', 60, panelY + 48)
+
+    ctx.fillStyle = '#0f172a'
+    ctx.font = '700 34px system-ui, sans-serif'
+    wrapText(
+      ctx,
+      `Student answer: ${meta.objectiveResponse || 'No answer'}`,
+      60,
+      panelY + 96,
+      workW - 60,
+      42,
+    )
+
+    if (meta.marked && meta.correctAnswer) {
+      const correct = normalizeAnswer(meta.objectiveResponse) === normalizeAnswer(meta.correctAnswer)
+      ctx.fillStyle = correct ? '#166534' : '#b91c1c'
+      ctx.font = '700 25px system-ui, sans-serif'
+      ctx.fillText(correct ? 'CORRECT' : 'INCORRECT', PAGE_W - 210, panelY + 48)
+      ctx.fillStyle = '#334155'
+      ctx.font = '600 24px system-ui, sans-serif'
+      wrapText(ctx, `Correct answer: ${meta.correctAnswer}`, 60, panelY + 142, workW - 80, 32)
     }
   }
 
@@ -172,6 +217,9 @@ export async function buildTestPdf(opts: {
   markPages?: PageInk[]
   marked?: boolean
   sources?: (LockedSource | null | undefined)[]
+  questionTypes?: QuestionType[]
+  objectiveResponses?: (string | null)[]
+  correctAnswers?: string[]
   rubric?: { source: LockedSource; marks?: PageInk }
 }): Promise<Blob> {
   const pdf = new jsPDF({
@@ -192,6 +240,9 @@ export async function buildTestPdf(opts: {
       marks: opts.markPages?.[i],
       marked: opts.marked,
       lockedSource: opts.sources?.[i],
+      questionType: opts.questionTypes?.[i] ?? 'written',
+      objectiveResponse: opts.objectiveResponses?.[i],
+      correctAnswer: opts.correctAnswers?.[i],
     })
     const img = canvas.toDataURL('image/jpeg', 0.85)
     const imgH = pageWidth * (canvas.height / canvas.width)
