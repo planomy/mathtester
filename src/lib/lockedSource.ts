@@ -91,8 +91,7 @@ export async function clipboardImageToLockedSource(
   return null
 }
 
-/** Draw locked source fitted into a rect (contain), white letterbox if needed. */
-export function drawLockedSource(
+function drawContainedSource(
   ctx: CanvasRenderingContext2D,
   img: CanvasImageSource,
   x: number,
@@ -131,7 +130,7 @@ export function drawLockedSourceWorkspace(
   const responseY = y + sourceH
   const responseH = Math.max(1, h - sourceH)
 
-  drawLockedSource(ctx, img, x, y, w, sourceH)
+  drawContainedSource(ctx, img, x, y, w, sourceH)
 
   ctx.save()
   ctx.fillStyle = '#fbfaf7'
@@ -158,6 +157,18 @@ export function drawLockedSourceWorkspace(
   ctx.restore()
 
   return { sourceH, responseY, responseH }
+}
+
+/** Existing locked-source callers now receive the same 70/30 workspace. */
+export function drawLockedSource(
+  ctx: CanvasRenderingContext2D,
+  img: CanvasImageSource,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  return drawLockedSourceWorkspace(ctx, img, x, y, w, h)
 }
 
 export function loadLockedImage(dataUrl: string): Promise<HTMLImageElement> {
