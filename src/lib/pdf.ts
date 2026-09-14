@@ -64,6 +64,7 @@ export async function renderPageToCanvas(
     marks?: PageInk
     marked?: boolean
     lockedSource?: LockedSource | null
+    pageLabel?: string
   },
 ): Promise<HTMLCanvasElement> {
   const promptH = promptBlockHeight(prompt)
@@ -86,7 +87,7 @@ export async function renderPageToCanvas(
   ctx.fillText(meta.studentName, 40, 48)
   ctx.font = '400 20px system-ui, sans-serif'
   ctx.fillText(
-    `${meta.testTitle}  ·  Q${meta.index + 1} of ${meta.total}`,
+    meta.pageLabel ?? `${meta.testTitle}  ·  Q${meta.index + 1} of ${meta.total}`,
     40,
     88,
   )
@@ -171,6 +172,7 @@ export async function buildTestPdf(opts: {
   markPages?: PageInk[]
   marked?: boolean
   sources?: (LockedSource | null | undefined)[]
+  rubric?: { source: LockedSource; marks?: PageInk }
 }): Promise<Blob> {
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -195,6 +197,27 @@ export async function buildTestPdf(opts: {
     const imgH = pageWidth * (canvas.height / canvas.width)
     const drawH = Math.min(imgH, pageHeight)
     pdf.addImage(img, 'JPEG', 0, 0, pageWidth, drawH)
+  }
+
+  if (opts.rubric) {
+    pdf.addPage()
+    const rubricCanvas = await renderPageToCanvas(
+      emptyInk(),
+      'Marking guide / rubric',
+      {
+        studentName: opts.studentName,
+        testTitle: opts.testTitle,
+        index: opts.pages.length,
+        total: opts.pages.length,
+        marks: opts.rubric.marks,
+        marked: true,
+        lockedSource: opts.rubric.source,
+        pageLabel: `${opts.testTitle} · Marking guide / rubric`,
+      },
+    )
+    const rubricImg = rubricCanvas.toDataURL('image/jpeg', 0.88)
+    const rubricH = pageWidth * (rubricCanvas.height / rubricCanvas.width)
+    pdf.addImage(rubricImg, 'JPEG', 0, 0, pageWidth, Math.min(rubricH, pageHeight))
   }
 
   return pdf.output('blob')
